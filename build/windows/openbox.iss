@@ -84,6 +84,11 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}
 ; Registry: file associations.
 ;   *.ext -> ProgID "OpenBox.Archive" -> open with openbox.exe "%1"
 ;   OpenWithProgids also adds OpenBox to the "Open with" submenu.
+;
+; We list each extension explicitly rather than via a #define macro because
+; Inno Setup's preprocessor doesn't let you emit multiple [Registry] entries
+; from a single macro call (the `Root:` keyword is parsed in the data layer,
+; not the preprocessor layer).
 ; ----------------------------------------------------------------------------
 [Registry]
 ; Define the ProgID once.
@@ -93,19 +98,27 @@ Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\open\command"; ValueT
 Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\extract"; ValueType: string; ValueName: ""; ValueData: "Extract with OpenBox"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\extract\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" -x ""%1"""; Flags: uninsdeletekey
 
-; Map each supported extension to OpenBox.Archive.
-#define AssocExt(ext) \
-  Root: HKA; Subkey: "Software\Classes\." + ext; ValueType: string; ValueName: ""; ValueData: "OpenBox.Archive"; Flags: uninsdeletekey; \
-  Root: HKA; Subkey: "Software\Classes\." + ext + "\OpenWithProgids"; ValueType: string; ValueName: "OpenBox.Archive"; ValueData: ""; Flags: uninsdeletekey
-
-{#AssocExt("zip")}
-{#AssocExt("rar")}
-{#AssocExt("7z")}
-{#AssocExt("tar")}
-{#AssocExt("tgz")}
-; .tar.gz has a compound extension; we still register the whole thing.
-{#AssocExt("tar.gz")}
-{#AssocExt("iso")}
+; .zip
+Root: HKA; Subkey: "Software\Classes\.zip"; ValueType: string; ValueName: ""; ValueData: "OpenBox.Archive"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\.zip\OpenWithProgids"; ValueType: string; ValueName: "OpenBox.Archive"; ValueData: ""; Flags: uninsdeletekey
+; .rar
+Root: HKA; Subkey: "Software\Classes\.rar"; ValueType: string; ValueName: ""; ValueData: "OpenBox.Archive"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\.rar\OpenWithProgids"; ValueType: string; ValueName: "OpenBox.Archive"; ValueData: ""; Flags: uninsdeletekey
+; .7z
+Root: HKA; Subkey: "Software\Classes\.7z"; ValueType: string; ValueName: ""; ValueData: "OpenBox.Archive"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\.7z\OpenWithProgids"; ValueType: string; ValueName: "OpenBox.Archive"; ValueData: ""; Flags: uninsdeletekey
+; .tar
+Root: HKA; Subkey: "Software\Classes\.tar"; ValueType: string; ValueName: ""; ValueData: "OpenBox.Archive"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\.tar\OpenWithProgids"; ValueType: string; ValueName: "OpenBox.Archive"; ValueData: ""; Flags: uninsdeletekey
+; .tgz
+Root: HKA; Subkey: "Software\Classes\.tgz"; ValueType: string; ValueName: ""; ValueData: "OpenBox.Archive"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\.tgz\OpenWithProgids"; ValueType: string; ValueName: "OpenBox.Archive"; ValueData: ""; Flags: uninsdeletekey
+; .tar.gz (compound extension; registered as a whole)
+Root: HKA; Subkey: "Software\Classes\.tar.gz"; ValueType: string; ValueName: ""; ValueData: "OpenBox.Archive"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\.tar.gz\OpenWithProgids"; ValueType: string; ValueName: "OpenBox.Archive"; ValueData: ""; Flags: uninsdeletekey
+; .iso
+Root: HKA; Subkey: "Software\Classes\.iso"; ValueType: string; ValueName: ""; ValueData: "OpenBox.Archive"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\.iso\OpenWithProgids"; ValueType: string; ValueName: "OpenBox.Archive"; ValueData: ""; Flags: uninsdeletekey
 
 ; ----------------------------------------------------------------------------
 ; Right-click "Compress with OpenBox" on ANY file or folder.
