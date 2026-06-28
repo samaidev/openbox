@@ -163,7 +163,8 @@ procedure NotifyShellOfAssocChange;
 var
   ResultCode: Integer;
 begin
-  ; SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, 0, 0)
+  // Call shell32.dll!SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, 0, 0)
+  // SHCNE_ASSOCCHANGED = 0x08000000, SHCNF_IDLIST = 0x0000
   Exec(ExpandConstant('{sys}\rundll32.exe'),
        'shell32.dll,SHChangeNotify 0x08000000 0x0000 0 0',
        '', SW_HIDE, ewNoWait, ResultCode);
