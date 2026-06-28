@@ -90,7 +90,7 @@ rm -rf "$PKGROOT"
 mkdir -p "${PKGROOT}/Applications"
 cp -R "${APP_DIR}" "${PKGROOT}/Applications/"
 
-COMPONENT_PKG="dist/OpenBox-${VERSION}-component.pkg"
+COMPONENT_PKG="dist/OpenBox-component.pkg"
 pkgbuild \
     --root "$PKGROOT" \
     --identifier "$APP_ID" \
