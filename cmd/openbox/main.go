@@ -47,6 +47,7 @@ func main() {
 		extract     bool
 		level       int
 		password    string
+		here        bool
 	)
 	flag.BoolVar(&showVersion, "version", false, "print version and exit")
 	flag.BoolVar(&cliMode, "cli", false, "non-interactive CLI mode (no GUI)")
@@ -54,6 +55,7 @@ func main() {
 	flag.BoolVar(&extract, "x", false, "GUI: pre-fill Extract tab with the given archive")
 	flag.IntVar(&level, "level", 6, "compression level (0=store, 1=fastest, 3=fast, 6=normal, 9=max)")
 	flag.StringVar(&password, "p", "", "password (for 7z/rar/zip with encryption)")
+	flag.BoolVar(&here, "here", false, "with -cli x: extract into a subfolder of the archive's parent dir, named after the archive (matches 7-Zip / WinRAR 'Extract to <name>\\')")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "OpenBox — open-source cross-platform archiver")
 		fmt.Fprintln(os.Stderr, "")
@@ -64,8 +66,10 @@ func main() {
 		fmt.Fprintln(os.Stderr, "  openbox -x <archive>          same as plain <archive>")
 		fmt.Fprintln(os.Stderr, "")
 		fmt.Fprintln(os.Stderr, "CLI mode (no GUI, for scripting/testing):")
-		fmt.Fprintln(os.Stderr, "  openbox -cli c <src>... <dest>     compress")
-		fmt.Fprintln(os.Stderr, "  openbox -cli x <archive> <dest>    extract")
+		fmt.Fprintln(os.Stderr, "  openbox -cli c <src>... <dest>            compress")
+		fmt.Fprintln(os.Stderr, "  openbox -cli x <archive> <dest>           extract")
+		fmt.Fprintln(os.Stderr, "  openbox -cli -here x <archive>            extract to <parent>/<name>/")
+		fmt.Fprintln(os.Stderr, "  openbox -cli l <archive>                  list contents")
 		fmt.Fprintln(os.Stderr, "  (combine with -level N -p PASSWORD)")
 		fmt.Fprintln(os.Stderr, "")
 		fmt.Fprintln(os.Stderr, "Other:")
@@ -81,7 +85,7 @@ func main() {
 	args := flag.Args()
 
 	if cliMode {
-		os.Exit(runCLI(args, level, password))
+		os.Exit(runCLI(args, level, password, here))
 	}
 
 	// GUI mode: decide the initial tab + pre-filled inputs.
@@ -108,11 +112,11 @@ func main() {
 
 // runCLI executes the non-interactive compress/extract command.
 // Returns the process exit code.
-func runCLI(args []string, level int, password string) int {
-	if len(args) < 2 {
+func runCLI(args []string, level int, password string, here bool) int {
+	if len(args) < 1 {
 		flag.Usage()
 		fmt.Fprintln(os.Stderr, "")
-		fmt.Fprintln(os.Stderr, "error: -cli requires a subcommand (c or x) and arguments")
+		fmt.Fprintln(os.Stderr, "error: -cli requires a subcommand (c, x, or l)")
 		return 2
 	}
 
@@ -153,12 +157,29 @@ func runCLI(args []string, level int, password string) int {
 		return 0
 
 	case "x", "extract":
-		if len(rest) != 2 {
-			fmt.Fprintln(os.Stderr, "error: extract requires <archive> <dest>")
-			return 2
+		var src, dest string
+		if here {
+			// -here x <archive>
+			if len(rest) != 1 {
+				fmt.Fprintln(os.Stderr, "error: -here x requires exactly <archive>")
+				return 2
+			}
+			src = cleanPath(rest[0])
+			dir := filepath.Dir(src)
+			base := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src))
+			if strings.HasSuffix(base, ".tar") {
+				base = strings.TrimSuffix(base, ".tar")
+			}
+			dest = filepath.Join(dir, base)
+		} else {
+			// x <archive> <dest>
+			if len(rest) != 2 {
+				fmt.Fprintln(os.Stderr, "error: extract requires <archive> <dest> (or use -here)")
+				return 2
+			}
+			src = cleanPath(rest[0])
+			dest = cleanPath(rest[1])
 		}
-		src := cleanPath(rest[0])
-		dest := cleanPath(rest[1])
 		opts := archiver.Options{Password: password}
 		if err := archiver.Extract(src, dest, opts, prog); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -167,8 +188,35 @@ func runCLI(args []string, level int, password string) int {
 		fmt.Printf("OK: extracted to %s\n", dest)
 		return 0
 
+	case "l", "list":
+		if len(rest) != 1 {
+			fmt.Fprintln(os.Stderr, "error: list requires <archive>")
+			return 2
+		}
+		src := cleanPath(rest[0])
+		opts := archiver.Options{Password: password}
+		entries, err := archiver.List(src, opts)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			return 1
+		}
+		fmt.Printf("%-50s  %12s  %s\n", "NAME", "SIZE", "MODIFIED")
+		for _, e := range entries {
+			size := "-"
+			if !e.IsDir {
+				size = fmt.Sprintf("%d", e.Size)
+			}
+			mod := ""
+			if !e.ModTime.IsZero() {
+				mod = e.ModTime.Format("2006-01-02 15:04")
+			}
+			fmt.Printf("%-50s  %12s  %s\n", e.Name, size, mod)
+		}
+		fmt.Printf("\n%d entries\n", len(entries))
+		return 0
+
 	default:
-		fmt.Fprintf(os.Stderr, "error: unknown subcommand %q (use 'c' or 'x')\n", cmd)
+		fmt.Fprintf(os.Stderr, "error: unknown subcommand %q (use 'c', 'x', or 'l')\n", cmd)
 		return 2
 	}
 }

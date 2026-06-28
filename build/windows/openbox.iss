@@ -101,6 +101,12 @@ Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\DefaultIcon"; ValueType: st
 Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\extract"; ValueType: string; ValueName: ""; ValueData: "Extract with OpenBox"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\extract\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" -x ""%1"""; Flags: uninsdeletekey
+; "Extract here" — extracts silently to <archive-parent-dir>\<archive-basename>\
+; without launching the GUI. Matches the 7-Zip / WinRAR right-click entry
+; that most users expect.
+Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\extractHere"; ValueType: string; ValueName: ""; ValueData: "Extract here with OpenBox"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\extractHere"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#MyAppExeName},0"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\extractHere\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" -cli -here x ""%1"""; Flags: uninsdeletekey
 
 ; .zip
 Root: HKA; Subkey: "Software\Classes\.zip"; ValueType: string; ValueName: ""; ValueData: "OpenBox.Archive"; Flags: uninsdeletekey
@@ -157,17 +163,23 @@ Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\App Paths\{#MyAppE
 
 ; ----------------------------------------------------------------------------
 ; Notify the shell that file associations + context menu have changed.
+;
+; We declare SHChangeNotify as an external function from shell32.dll so we
+; can call it directly. The previous approach of using rundll32 to invoke
+; SHChangeNotify did NOT work — rundll32 can only call functions that take
+; string arguments, but SHChangeNotify takes 4 numeric parameters.
 ; ----------------------------------------------------------------------------
 [Code]
+const
+  SHCNE_ASSOCCHANGED = $08000000;
+  SHCNF_IDLIST = $0000;
+
+procedure SHChangeNotify(wEventId: LongWord; uFlags: Cardinal; dwItem1: LongWord; dwItem2: LongWord);
+external 'SHChangeNotify@shell32.dll stdcall';
+
 procedure NotifyShellOfAssocChange;
-var
-  ResultCode: Integer;
 begin
-  // Call shell32.dll!SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, 0, 0)
-  // SHCNE_ASSOCCHANGED = 0x08000000, SHCNF_IDLIST = 0x0000
-  Exec(ExpandConstant('{sys}\rundll32.exe'),
-       'shell32.dll,SHChangeNotify 0x08000000 0x0000 0 0',
-       '', SW_HIDE, ewNoWait, ResultCode);
+  SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, 0, 0);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

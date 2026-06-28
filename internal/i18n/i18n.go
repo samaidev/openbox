@@ -94,6 +94,14 @@ const (
 	FileCount
 	TotalSize
 	EstimatedRemaining
+	ArchiveContents
+	ExtractHere
+	ExtractHereFolder
+	ExtractSelected
+	Loading
+	NoArchiveSelected
+	ListFailed
+	ExtractHereShort
 )
 
 // table maps a key -> [English, Chinese].
@@ -158,6 +166,14 @@ var table = map[key][2]string{
 	FileCount:           {"Files: {n}", "文件数：{n}"},
 	TotalSize:           {"Total: {size}", "总计：{size}"},
 	EstimatedRemaining:  {"ETA: {eta}", "剩余：{eta}"},
+	ArchiveContents:     {"Archive contents", "压缩包内容"},
+	ExtractHere:         {"Extract here", "解压到当前目录"},
+	ExtractHereFolder:   {"Extract to \"{folder}\"", "解压到“{folder}”"},
+	ExtractSelected:     {"Extract selected", "解压选中项"},
+	Loading:             {"Loading…", "加载中…"},
+	NoArchiveSelected:   {"No archive selected. Pick a file above.", "未选择压缩包，请在上方选择文件。"},
+	ListFailed:          {"Failed to list archive: ", "读取压缩包内容失败："},
+	ExtractHereShort:    {"Here", "当前目录"},
 }
 
 // T returns the string for the current language.

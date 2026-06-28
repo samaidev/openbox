@@ -335,8 +335,12 @@ func extractZip(src, dest string, p *Progress) error {
 	defer r.Close()
 	total := len(r.File)
 	for i, f := range r.File {
-		reportProgress(p, i, total, f.Name)
-		target, err := safeJoin(dest, f.Name)
+		// Decode the name now (may be GBK-encoded on Windows-created zips).
+		// We pass the decoded name to safeJoin/copyFile so the on-disk
+		// filename uses the correct characters.
+		decodedName := decodeZipName(f.Name)
+		reportProgress(p, i, total, decodedName)
+		target, err := safeJoin(dest, decodedName)
 		if err != nil {
 			return err
 		}
@@ -345,6 +349,11 @@ func extractZip(src, dest string, p *Progress) error {
 				return err
 			}
 			continue
+		}
+		// Make sure parent dirs exist even when the zip omits explicit
+		// directory entries (common on macOS-created zips).
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
 		}
 		rc, err := f.Open()
 		if err != nil {
