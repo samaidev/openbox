@@ -64,11 +64,13 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "associate"; Description: "{cm:AssocFileExtension,OpenBox,.zip .rar .7z .tar .tgz .tar.gz .iso}"; GroupDescription: "File associations:"
 
 [Files]
-; openbox.exe is expected to be in ..\dist\openbox-windows-amd64\openbox.exe
-; (produced by `fyne package` or by the CI workflow before invoking iscc).
-Source: "..\dist\openbox-windows-amd64\openbox.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
+; openbox.exe is expected to be in dist\openbox-windows-amd64\openbox.exe
+; (produced by `go build` + staged by build-installer.bat / CI workflow).
+; Paths in [Files] are relative to the .iss file location (build/windows/),
+; so ..\..\ resolves to the repo root.
+Source: "..\..\dist\openbox-windows-amd64\openbox.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
