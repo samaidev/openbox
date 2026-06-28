@@ -1,0 +1,206 @@
+name: Release
+
+# Triggered by:
+#   1. Pushing a tag like v0.1.0 — builds all platforms, uploads to a new
+#      GitHub Release attached to that tag.
+#   2. Manual dispatch via the Actions tab (workflow_dispatch) — useful for
+#      nightly/CI builds without creating a release.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version string (e.g. 0.2.0)"
+        required: false
+        default: "0.0.0-dev"
+
+permissions:
+  contents: write  # required to upload assets to a Release
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build a single platform's binary. We use a matrix instead of three
+  # separate jobs to keep the YAML DRY.
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            runner: windows-latest
+            archive: zip
+            bin_ext: .exe
+            asset_suffix: windows-amd64
+          - goos: darwin
+            goarch: arm64
+            runner: macos-14
+            archive: tar.gz
+            bin_ext: ""
+            asset_suffix: macos-arm64
+          - goos: darwin
+            goarch: amd64
+            runner: macos-13
+            archive: tar.gz
+            bin_ext: ""
+            asset_suffix: macos-amd64
+          - goos: linux
+            goarch: amd64
+            runner: ubuntu-22.04
+            archive: tar.gz
+            bin_ext: ""
+            asset_suffix: linux-amd64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Install Linux GUI deps
+        if: matrix.goos == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1-mesa-dev \
+            xorg-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxi-dev \
+            libxcursor-dev \
+            libxpresent-dev
+
+      - name: Determine version
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            V="${GITHUB_REF##*/}"           # e.g. v0.1.0
+            V="${V#v}"                       # strip leading v
+          else
+            V="${{ github.event.inputs.version }}"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Building version: $V"
+
+      - name: Build binary
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "1"
+        run: |
+          mkdir -p dist/openbox-${{ matrix.asset_suffix }}
+          LDFLAGS="-X main.Version=${{ steps.ver.outputs.version }}"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            LDFLAGS="$LDFLAGS -H windowsgui"
+          fi
+          go build -trimpath -ldflags "$LDFLAGS" \
+            -o "dist/openbox-${{ matrix.asset_suffix }}/openbox${{ matrix.bin_ext }}" \
+            ./cmd/openbox
+          cp LICENSE README.md "dist/openbox-${{ matrix.asset_suffix }}/"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openbox-${{ matrix.asset_suffix }}
+          path: dist/openbox-${{ matrix.asset_suffix }}/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Windows installer step. Depends on the Windows binary job above.
+  # ---------------------------------------------------------------------------
+  windows-installer:
+    name: Windows installer (Inno Setup)
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Windows binary
+        uses: actions/download-artifact@v4
+        with:
+          name: openbox-windows-amd64
+          path: dist/openbox-windows-amd64
+
+      - name: Determine version
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            V="${GITHUB_REF##*/}"; V="${V#v}"
+          else
+            V="${{ github.event.inputs.version }}"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Compile installer
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.5
+        with:
+          path: build/windows/openbox.iss
+          options: /Q
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openbox-windows-installer
+          path: dist/OpenBox-*-windows-amd64-setup.exe
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Publish: attach every artifact to a GitHub Release (only on tag push).
+  # For workflow_dispatch runs we skip this — artifacts are available via
+  # the Actions UI instead.
+  # ---------------------------------------------------------------------------
+  publish:
+    name: Publish release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [build, windows-installer]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+
+      - name: Repackage artifacts
+        run: |
+          set -euo pipefail
+          cd assets
+          # Zip the Windows folder and tar.gz the others so each release
+          # asset is a single downloadable file.
+          for dir in openbox-windows-amd64 openbox-macos-arm64 openbox-macos-amd64 openbox-linux-amd64; do
+            case "$dir" in
+              openbox-windows-*)
+                (cd "$dir" && zip -r "../${dir}.zip" .)
+                ;;
+              *)
+                tar czf "${dir}.tar.gz" -C "$dir" .
+                ;;
+            esac
+          done
+          # Move the installer out of its own folder.
+          mv openbox-windows-installer/*.exe .
+          ls -lh
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            assets/openbox-windows-amd64.zip
+            assets/openbox-macos-arm64.tar.gz
+            assets/openbox-macos-amd64.tar.gz
+            assets/openbox-linux-amd64.tar.gz
+            assets/OpenBox-*-windows-amd64-setup.exe
+          draft: true
+          generate_release_notes: true

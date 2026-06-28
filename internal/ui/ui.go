@@ -62,8 +62,33 @@ type App struct {
 
 const prefLang = "ui.lang"
 
-// New constructs the application window.
+// Tab identifies which tab to focus on startup.
+type Tab int
+
+const (
+	TabCompress Tab = iota
+	TabExtract
+)
+
+// InitialState carries CLI-provided inputs that pre-fill the UI on launch.
+// It's used by the Windows file-association and shell-context-menu flows:
+// double-clicking a .zip launches OpenBox with Tab=TabExtract and Archive set,
+// right-clicking a folder and picking "Compress with OpenBox" launches with
+// Tab=TabCompress and Sources set.
+type InitialState struct {
+	Tab     Tab
+	Sources []string // pre-filled Compress sources
+	Archive string   // pre-filled Extract source
+}
+
+// New constructs the application window with no pre-filled inputs.
 func New(a fyne.App) fyne.Window {
+	return NewWithState(a, nil)
+}
+
+// NewWithState constructs the application window, optionally pre-filling the
+// Compress or Extract tab from CLI arguments.
+func NewWithState(a fyne.App, init *InitialState) fyne.Window {
 	w := a.NewWindow(i18n.T(i18n.AppTitle))
 	w.Resize(fyne.NewSize(920, 640))
 
@@ -115,6 +140,11 @@ func New(a fyne.App) fyne.Window {
 	)
 
 	w.SetContent(container.NewBorder(toolbar, bottom, nil, nil, app.tabs))
+
+	// Apply CLI-provided initial state.
+	if init != nil {
+		app.applyInitialState(init)
+	}
 
 	w.SetCloseIntercept(func() {
 		if app.busy {
@@ -467,5 +497,40 @@ func openInOS(path string) {
 		_ = execCmd("explorer", path)
 	default:
 		_ = execCmd("xdg-open", path)
+	}
+}
+
+// applyInitialState pre-fills the Compress or Extract tab from CLI args.
+// It's invoked once after the window content is built.
+func (a *App) applyInitialState(init *InitialState) {
+	if init == nil {
+		return
+	}
+	switch init.Tab {
+	case TabCompress:
+		for _, s := range init.Sources {
+			if s != "" {
+				a.srcItems = append(a.srcItems, s)
+			}
+		}
+		a.srcList.Refresh()
+		// Default the target path to the parent dir of the first source.
+		if len(a.srcItems) > 0 && a.targetPath.Text == "" {
+			a.targetPath.SetText(filepath.Dir(a.srcItems[0]))
+		}
+		a.tabs.SelectIndex(int(TabCompress))
+	case TabExtract:
+		if init.Archive != "" {
+			a.exSrc.SetText(init.Archive)
+			// Default the target dir to the archive's parent + base name.
+			dir := filepath.Dir(init.Archive)
+			base := strings.TrimSuffix(filepath.Base(init.Archive), filepath.Ext(init.Archive))
+			if base != "" && dir != "" {
+				a.exDest.SetText(filepath.Join(dir, base))
+			} else if dir != "" {
+				a.exDest.SetText(dir)
+			}
+		}
+		a.tabs.SelectIndex(int(TabExtract))
 	}
 }
