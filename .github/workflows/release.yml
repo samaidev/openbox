@@ -42,9 +42,14 @@ jobs:
             archive: tar.gz
             bin_ext: ""
             asset_suffix: macos-arm64
+          # Cross-compile macOS amd64 from an Apple Silicon runner.
+          # macos-13 (Intel) runners are being retired by GitHub and have
+          # severe availability problems; macos-14 + GOARCH=amd64 produces
+          # a perfectly good Intel-Mac binary that runs natively on Intel
+          # Macs and via Rosetta 2 on Apple Silicon.
           - goos: darwin
             goarch: amd64
-            runner: macos-13
+            runner: macos-14
             archive: tar.gz
             bin_ext: ""
             asset_suffix: macos-amd64
