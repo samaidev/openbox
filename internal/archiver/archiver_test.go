@@ -126,6 +126,64 @@ func TestTarGzRoundTrip(t *testing.T) {
 	equalTree(t, src, filepath.Join(out, filepath.Base(src)))
 }
 
+func TestSevenZipWriteRoundTrip(t *testing.T) {
+	if !SevenZipWriterAvailable() {
+		t.Skip("no 7z CLI in PATH; install p7zip-full / 7zip / 7-Zip to run this test")
+	}
+	src := makeTree(t)
+	dest := filepath.Join(t.TempDir(), "out.7z")
+	out := t.TempDir()
+	if err := Compress([]string{src}, dest, Options{Format: Format7z, Level: LevelNormal}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := Extract(dest, out, Options{}, nil); err != nil {
+		t.Fatal(err)
+	}
+	equalTree(t, src, filepath.Join(out, filepath.Base(src)))
+}
+
+func TestSevenZipWriteWithPassword(t *testing.T) {
+	if !SevenZipWriterAvailable() {
+		t.Skip("no 7z CLI in PATH; install p7zip-full / 7zip / 7-Zip to run this test")
+	}
+	src := makeTree(t)
+	dest := filepath.Join(t.TempDir(), "out.7z")
+	out := t.TempDir()
+	if err := Compress([]string{src}, dest, Options{Format: Format7z, Level: LevelMaximum, Password: "secret"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := Extract(dest, out, Options{Password: "secret"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	equalTree(t, src, filepath.Join(out, filepath.Base(src)))
+}
+
+func TestSevenZipWriteMultipleSources(t *testing.T) {
+	if !SevenZipWriterAvailable() {
+		t.Skip("no 7z CLI in PATH")
+	}
+	src1 := makeTree(t)
+	src2 := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src2, "extra.txt"), []byte("extra"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(t.TempDir(), "multi.7z")
+	out := t.TempDir()
+	if err := Compress([]string{src1, src2}, dest, Options{Format: Format7z}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := Extract(dest, out, Options{}, nil); err != nil {
+		t.Fatal(err)
+	}
+	// Both source base names should appear as top-level entries.
+	if _, err := os.Stat(filepath.Join(out, filepath.Base(src1))); err != nil {
+		t.Errorf("src1 missing in archive: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(out, filepath.Base(src2))); err != nil {
+		t.Errorf("src2 missing in archive: %v", err)
+	}
+}
+
 func TestDetect(t *testing.T) {
 	cases := map[string]Format{
 		"a.zip":     FormatZip,

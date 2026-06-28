@@ -21,8 +21,7 @@ permissions:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Build a single platform's binary. We use a matrix instead of three
-  # separate jobs to keep the YAML DRY.
+  # Build a single platform's portable binary. Matrix keeps it DRY.
   # ---------------------------------------------------------------------------
   build:
     name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
@@ -118,7 +117,7 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
-  # Windows installer step. Depends on the Windows binary job above.
+  # Windows installer (Inno Setup). Depends on the Windows binary job.
   # ---------------------------------------------------------------------------
   windows-installer:
     name: Windows installer (Inno Setup)
@@ -159,14 +158,91 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
+  # macOS .pkg installer. Runs on macos-14 (Apple Silicon).
+  # Builds the .app bundle + .icns + pkgbuild + productbuild in one shot
+  # using build/macos/build.sh.
+  # ---------------------------------------------------------------------------
+  macos-installer:
+    name: macOS installer (.pkg)
+    needs: build
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Determine version
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            V="${GITHUB_REF##*/}"; V="${V#v}"
+          else
+            V="${{ github.event.inputs.version }}"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Build .app and .pkg
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          # If secrets are configured, sign + notarize; otherwise ad-hoc.
+          APPLE_DEVELOPER_ID_INSTALLER: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER }}
+          NOTARY_PROFILE: ${{ secrets.NOTARY_PROFILE }}
+        run: bash build/macos/build.sh
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openbox-macos-installer
+          path: dist/OpenBox-*-macos.pkg
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Run unit tests (including 7z write tests) on Linux with 7z installed.
+  # Independent of the build matrix; just verifies the codebase is healthy.
+  # ---------------------------------------------------------------------------
+  test:
+    name: Test (linux/amd64 with 7z)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Install deps + 7z
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1-mesa-dev \
+            xorg-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxi-dev \
+            libxcursor-dev \
+            p7zip-full
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test (including 7z write round-trip)
+        run: go test ./internal/... -v -count=1
+
+  # ---------------------------------------------------------------------------
   # Publish: attach every artifact to a GitHub Release (only on tag push).
-  # For workflow_dispatch runs we skip this — artifacts are available via
-  # the Actions UI instead.
   # ---------------------------------------------------------------------------
   publish:
     name: Publish release
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: [build, windows-installer]
+    needs: [build, test, windows-installer, macos-installer]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/download-artifact@v4
@@ -189,8 +265,9 @@ jobs:
                 ;;
             esac
           done
-          # Move the installer out of its own folder.
+          # Move installers out of their own folders to the assets root.
           mv openbox-windows-installer/*.exe .
+          mv openbox-macos-installer/*.pkg .
           ls -lh
 
       - name: Upload to GitHub Release
@@ -202,5 +279,6 @@ jobs:
             assets/openbox-macos-amd64.tar.gz
             assets/openbox-linux-amd64.tar.gz
             assets/OpenBox-*-windows-amd64-setup.exe
+            assets/OpenBox-*-macos.pkg
           draft: true
           generate_release_notes: true

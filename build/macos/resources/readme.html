@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <style>
+        body { font-family: -apple-system, "Helvetica Neue", sans-serif; color: #1f2937; margin: 24px; line-height: 1.55; }
+        h2   { color: #3730A3; font-size: 16px; margin-top: 18px; margin-bottom: 4px; }
+        p    { margin: 8px 0; }
+        code { background: #f3f4f6; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+        ul, ol { padding-left: 22px; }
+        li   { margin: 4px 0; }
+    </style>
+</head>
+<body>
+    <h2>Quick start</h2>
+    <ol>
+        <li>Launch <strong>OpenBox.app</strong> from <code>Applications</code> or Spotlight.</li>
+        <li>Pick a language in the top-right toolbar (中文 / English).</li>
+        <li>Switch between the <strong>Compress</strong> and <strong>Extract</strong> tabs at the top.</li>
+    </ol>
+
+    <h2>Supported formats</h2>
+    <table style="border-collapse: collapse; width: 100%;">
+        <tr style="background: #f3f4f6;">
+            <th style="padding: 6px 12px; text-align: left;">Format</th>
+            <th style="padding: 6px 12px;">Compress</th>
+            <th style="padding: 6px 12px;">Extract</th>
+            <th style="padding: 6px 12px; text-align: left;">Notes</th>
+        </tr>
+        <tr><td style="padding: 6px 12px;"><code>.zip</code></td><td style="text-align: center;">✅</td><td style="text-align: center;">✅</td><td style="padding: 6px 12px;">5 compression levels</td></tr>
+        <tr><td style="padding: 6px 12px;"><code>.tar</code></td><td style="text-align: center;">✅</td><td style="text-align: center;">✅</td><td></td></tr>
+        <tr><td style="padding: 6px 12px;"><code>.tar.gz</code></td><td style="text-align: center;">✅</td><td style="text-align: center;">✅</td><td></td></tr>
+        <tr><td style="padding: 6px 12px;"><code>.7z</code></td><td style="text-align: center;">✅*</td><td style="text-align: center;">✅</td><td style="padding: 6px 12px;">*requires <code>brew install 7zip</code></td></tr>
+        <tr><td style="padding: 6px 12px;"><code>.rar</code></td><td style="text-align: center;">—</td><td style="text-align: center;">✅</td><td style="padding: 6px 12px;">RAR is proprietary</td></tr>
+        <tr><td style="padding: 6px 12px;"><code>.iso</code></td><td style="text-align: center;">—</td><td style="text-align: center;">✅</td><td></td></tr>
+    </table>
+
+    <h2>CLI</h2>
+    <p>OpenBox also understands command-line flags:</p>
+    <pre><code>openbox &lt;archive&gt;            # extract tab pre-filled
+openbox -c &lt;file|dir&gt;...     # compress tab pre-filled
+openbox -x &lt;archive&gt;          # alias for plain &lt;archive&gt;
+openbox -version</code></pre>
+
+    <p style="margin-top: 24px; color: #6b7280; font-size: 13px;">
+        Full documentation: <a href="https://github.com/samaidev/openbox#readme">github.com/samaidev/openbox</a>
+    </p>
+</body>
+</html>

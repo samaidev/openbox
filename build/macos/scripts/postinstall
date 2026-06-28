@@ -1,0 +1,42 @@
+#!/bin/bash
+# OpenBox — macOS pkg postinstall
+# ----------------------------------------------------------------------------
+# Runs after OpenBox.app has been copied to /Applications. Registers the app
+# with Launch Services so file-type associations (zip / 7z / rar / iso / ...)
+# declared in Info.plist take effect immediately, without requiring the user
+# to log out.
+#
+# Returns 0 even if lsregister fails — file associations are a convenience,
+# not a correctness requirement. The user can still launch OpenBox manually.
+# ----------------------------------------------------------------------------
+
+set -u
+
+APP_PATH="/Applications/OpenBox.app"
+
+# macOS keeps moving lsregister around between major versions. Probe the most
+# likely paths first; fall back to find if none of them exist.
+LSREGISTER=""
+for candidate in \
+    "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister" \
+    "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister" \
+    "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Support/lsregister"; do
+    if [ -x "$candidate" ]; then
+        LSREGISTER="$candidate"
+        break
+    fi
+done
+
+if [ -z "$LSREGISTER" ]; then
+    echo "postinstall: lsregister not found at standard paths; skipping association registration"
+    exit 0
+fi
+
+if [ -d "$APP_PATH" ]; then
+    echo "postinstall: registering $APP_PATH with Launch Services"
+    "$LSREGISTER" -f "$APP_PATH" || true
+else
+    echo "postinstall: $APP_PATH not found; nothing to register"
+fi
+
+exit 0

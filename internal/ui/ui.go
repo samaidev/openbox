@@ -249,7 +249,7 @@ func (a *App) buildCompressTab() {
 	})
 
 	a.formatSel = widget.NewSelect(
-		[]string{"zip", "tar", "tar.gz"},
+		[]string{"zip", "tar", "tar.gz", "7z"},
 		func(s string) {},
 	)
 	a.formatSel.SetSelected("zip")
@@ -471,6 +471,8 @@ func formatFromString(s string) archiver.Format {
 		return archiver.FormatTar
 	case "tar.gz":
 		return archiver.FormatTarGz
+	case "7z":
+		return archiver.Format7z
 	}
 	return archiver.FormatAuto
 }

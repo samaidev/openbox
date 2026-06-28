@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<installer-gui-script minSpecVersion="2">
+    <title>OpenBox</title>
+    <organization name="samaidev">io.github.samaidev</organization>
+
+    <!-- Single-package installer: no customisation screen, just install. -->
+    <options customize="never" require-scripts="false" rootVolumeOnly="false"/>
+
+    <!-- Installer UI pages (HTML rendered by Installer.app's WebKit view). -->
+    <welcome    file="welcome.html"    mime-type="text/html"/>
+    <readme     file="readme.html"     mime-type="text/html"/>
+    <license    file="license.txt"/>
+    <conclusion file="conclusion.html" mime-type="text/html"/>
+
+    <!-- The single component package that does the actual install. -->
+    <pkg-ref id="io.github.samaidev.openbox"/>
+
+    <choices-outline>
+        <line choice="default"/>
+    </choices-outline>
+    <choice id="default" enabled="false">
+        <pkg-ref id="io.github.samaidev.openbox"/>
+    </choice>
+    <pkg-ref id="io.github.samaidev.openbox" version="0.1.0" onConclusion="none">OpenBox-component.pkg</pkg-ref>
+</installer-gui-script>

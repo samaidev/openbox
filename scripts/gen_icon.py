@@ -61,11 +61,11 @@ def write_png_from_svg() -> None:
     cairosvg.svg2png(
         bytestring=SVG.encode("utf-8"),
         write_to=str(PNG_PATH),
-        output_width=512,
-        output_height=512,
+        output_width=1024,
+        output_height=1024,
     )
     print(f"wrote {SVG_PATH}")
-    print(f"wrote {PNG_PATH}")
+    print(f"wrote {PNG_PATH}  (1024x1024)")
 
 
 def write_ico() -> None:

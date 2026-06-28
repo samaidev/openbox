@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <style>
+        body { font-family: -apple-system, "Helvetica Neue", sans-serif; color: #1f2937; margin: 24px; line-height: 1.55; }
+        h1   { color: #4F46E5; font-size: 22px; margin-bottom: 4px; }
+        h2   { color: #3730A3; font-size: 16px; margin-top: 22px; margin-bottom: 4px; }
+        p    { margin: 8px 0; }
+        code { background: #f3f4f6; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+        ul   { padding-left: 22px; }
+        li   { margin: 4px 0; }
+        .muted { color: #6b7280; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <h1>Welcome to OpenBox</h1>
+    <p class="muted">Open-source, free, cross-platform bilingual archiver — MIT licensed.</p>
+
+    <p>This installer will copy <strong>OpenBox.app</strong> to your <code>Applications</code> folder
+    and register it as a viewer for the following archive types:</p>
+
+    <ul>
+        <li><code>.zip</code> &nbsp;<code>.tar</code> &nbsp;<code>.tar.gz</code> &nbsp;<code>.tgz</code></li>
+        <li><code>.7z</code> &nbsp;<code>.rar</code> &nbsp;<code>.iso</code></li>
+    </ul>
+
+    <p>After installation, double-click any of those files to open them in OpenBox.
+    You can also right-click an archive and choose <strong>Open With → OpenBox</strong>.</p>
+
+    <h2>Compressing files</h2>
+    <p>Drag files or folders into the Compress tab, pick a format, and click <strong>Compress</strong>.
+    To create <code>.7z</code> archives, install the 7-Zip CLI first:</p>
+    <p><code>brew install 7zip</code></p>
+
+    <h2>Uninstall</h2>
+    <p>Drag <strong>OpenBox.app</strong> from <code>Applications</code> to the Trash.</p>
+
+    <p class="muted">Source code: <a href="https://github.com/samaidev/openbox">github.com/samaidev/openbox</a></p>
+</body>
+</html>

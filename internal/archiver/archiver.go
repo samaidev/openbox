@@ -72,11 +72,13 @@ func Detect(name string) Format {
 }
 
 // CanCompress reports whether OpenBox can create archives in this format.
-// RAR is proprietary; the open-source ecosystem currently lacks a stable 7z
-// writer; ISO writing is out of scope for v1.
+//   - zip / tar / tar.gz: pure-Go writers, always available
+//   - 7z: requires the 7-Zip CLI to be installed (see SevenZipWriterAvailable)
+//   - rar: proprietary format, no open-source writer exists
+//   - iso: out of scope for v1
 func CanCompress(f Format) bool {
 	switch f {
-	case FormatZip, FormatTar, FormatTarGz:
+	case FormatZip, FormatTar, FormatTarGz, Format7z:
 		return true
 	}
 	return false
@@ -118,6 +120,19 @@ func Compress(sources []string, dest string, opts Options, p *Progress) error {
 	}
 	if !CanCompress(opts.Format) {
 		return fmt.Errorf("format %s is not supported for compression", opts.Format)
+	}
+
+	// 7z write shells out to the 7-Zip CLI and walks directories itself,
+	// so it doesn't need the collected file list. Handle it before collect()
+	// to avoid an unnecessary directory walk.
+	if opts.Format == Format7z {
+		if err := write7zViaBinary(sources, dest, opts, p); err != nil {
+			return err
+		}
+		if p != nil && p.OnDone != nil {
+			p.OnDone()
+		}
+		return nil
 	}
 
 	files, err := collect(sources, opts.RootDir)

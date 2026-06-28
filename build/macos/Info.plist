@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Bundle identity -->
+    <key>CFBundleName</key>
+    <string>OpenBox</string>
+    <key>CFBundleDisplayName</key>
+    <string>OpenBox</string>
+    <key>CFBundleIdentifier</key>
+    <string>io.github.samaidev.openbox</string>
+    <key>CFBundleVersion</key>
+    <string>0.1.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleExecutable</key>
+    <string>openbox</string>
+    <key>CFBundleIconFile</key>
+    <string>icon.icns</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+
+    <!-- Minimum macOS version (Fyne v2.7 requires 10.13+) -->
+    <key>LSMinimumSystemVersion</key>
+    <string>10.13</string>
+
+    <!-- HiDPI / Retina support -->
+    <key>NSHighResolutionCapable</key>
+    <true/>
+
+    <!-- Hide the dock icon while the app is launching to avoid flicker. -->
+    <key>LSUIElement</key>
+    <false/>
+
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright (c) 2026 samaidev — MIT License</string>
+
+    <!--
+        File type associations. macOS uses Uniform Type Identifiers (UTIs)
+        to map file extensions to applications. Standard archive UTIs like
+        public.zip-archive are declared by the system; for .7z and .rar we
+        also declare UTImportedTypeDeclarations so Finder knows about them.
+    -->
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>ZIP Archive</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.zip-archive</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>Gzip Tar Archive</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>org.gnu.gnu-zip-tar-archive</string>
+                <string>public.tar-gzip-archive</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>Tar Archive</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.tar-archive</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>7-Zip Archive</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Default</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>io.github.samaidev.openbox.7z-archive</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>RAR Archive</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Default</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>io.github.samaidev.openbox.rar-archive</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>ISO Image</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.iso-image</string>
+            </array>
+        </dict>
+    </array>
+
+    <!--
+        UTIs we declare ourselves. public.zip-archive etc. are system-defined
+        and don't need to be re-declared. We only declare the ones macOS
+        doesn't ship by default: .7z and .rar.
+    -->
+    <key>UTImportedTypeDeclarations</key>
+    <array>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>io.github.samaidev.openbox.7z-archive</string>
+            <key>UTTypeDescription</key>
+            <string>7-Zip Archive</string>
+            <key>UTTypeConformsTo</key>
+            <array>
+                <string>public.archive</string>
+                <string>public.data</string>
+            </array>
+            <key>UTTypeTagSpecification</key>
+            <dict>
+                <key>public.filename-extension</key>
+                <array>
+                    <string>7z</string>
+                </array>
+                <key>public.mime-type</key>
+                <array>
+                    <string>application/x-7z-compressed</string>
+                </array>
+            </dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>io.github.samaidev.openbox.rar-archive</string>
+            <key>UTTypeDescription</key>
+            <string>RAR Archive</string>
+            <key>UTTypeConformsTo</key>
+            <array>
+                <string>public.archive</string>
+                <string>public.data</string>
+            </array>
+            <key>UTTypeTagSpecification</key>
+            <dict>
+                <key>public.filename-extension</key>
+                <array>
+                    <string>rar</string>
+                </array>
+                <key>public.mime-type</key>
+                <array>
+                    <string>application/vnd.rar</string>
+                </array>
+            </dict>
+        </dict>
+    </array>
+</dict>
+</plist>

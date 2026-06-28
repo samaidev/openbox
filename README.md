@@ -14,7 +14,7 @@ OpenBox is a desktop archiver built with Go + [Fyne](https://fyne.io). The goal 
 | zip    | ✅ | ✅ | stdlib `archive/zip`, deflate or store |
 | tar    | ✅ | ✅ | stdlib `archive/tar` |
 | tar.gz | ✅ | ✅ | stdlib + `compress/gzip`, 5 levels |
-| 7z     | ❌ | ✅ | via [`bodgit/sevenzip`](https://github.com/bodgit/sevenzip); writer unavailable in the Go ecosystem |
+| 7z     | ✅* | ✅ | compress via 7-Zip CLI (see below); extract via [`bodgit/sevenzip`](https://github.com/bodgit/sevenzip) |
 | rar    | ❌ | ✅ | via [`nwaples/rardecode`](https://github.com/nwaples/rardecode); RAR is proprietary so no writer |
 | iso    | ❌ | ✅ | via [`kdomanski/iso9660`](https://github.com/kdomanski/iso9660) |
 
@@ -25,9 +25,27 @@ Other features:
 - 📊 Progress bar + per-file log
 - 🪟 Native look on Windows / macOS / Linux thanks to Fyne
 - 🖱️ **Windows**: file-type associations + right-click "Compress / Extract with OpenBox"
+- 🍎 **macOS**: file-type associations via Launch Services, signed .pkg installer with welcome/readme/conclusion screens
 - 📦 **Windows installer** built with Inno Setup, ships in 2 languages (en/zh-CN)
-- 🤖 **CI/CD**: every git tag auto-builds Win/Mac/Linux binaries + Win installer and attaches them to a draft Release
+- 📦 **macOS installer** built with `pkgbuild` + `productbuild`, ad-hoc signed (optional Developer ID + notarization)
+- 🤖 **CI/CD**: every git tag auto-builds Win/Mac/Linux binaries + Windows installer + macOS .pkg, then attaches them to a draft Release
 - 🚫 No telemetry, no ads, no paid tiers — forever
+
+### 7z write requires the 7-Zip CLI
+
+7z **extraction** is pure-Go (via `bodgit/sevenzip`) and works out of the box.
+7z **compression** shells out to the official 7-Zip CLI because the open-source
+Go ecosystem has no stable 7z writer. Install it once and OpenBox picks it up
+automatically on next launch:
+
+| Platform | Command |
+|----------|---------|
+| Windows  | Download from <https://www.7-zip.org/download.html> (the installer adds `7z.exe` to PATH) |
+| macOS    | `brew install 7zip` (provides `7zz`) |
+| Linux    | `sudo apt install p7zip-full` (Debian/Ubuntu) · `sudo dnf install p7zip` (Fedora) · `sudo pacman -S p7zip` (Arch) |
+
+If you pick "7z" in the format dropdown but no binary is found, OpenBox shows
+a clear error with install instructions.
 
 ## Download / 下载
 
@@ -36,8 +54,9 @@ Grab the latest release from the [Releases page](https://github.com/samaidev/ope
 | File | Platform | Notes |
 |------|----------|-------|
 | `OpenBox-<ver>-windows-amd64-setup.exe` | Windows 10/11 x64 | **Recommended.** Installer with file associations + right-click menu. |
+| `OpenBox-<ver>-macos.pkg` | macOS Apple Silicon | **Recommended.** Installer with welcome/readme/license screens + automatic file association registration. |
 | `openbox-windows-amd64.zip` | Windows 10/11 x64 | Portable — just unzip and run `openbox.exe`. No associations. |
-| `openbox-macos-arm64.tar.gz` | macOS Apple Silicon | Untar, then `xattr -d com.apple.quarantine openbox` before first run. |
+| `openbox-macos-arm64.tar.gz` | macOS Apple Silicon | Portable. Untar, then `xattr -d com.apple.quarantine openbox` before first run. |
 | `openbox-macos-amd64.tar.gz` | macOS Intel | Same as above. |
 | `openbox-linux-amd64.tar.gz` | Linux x64 | Requires glibc 2.31+ and OpenGL/EGL runtime. |
 
@@ -99,6 +118,62 @@ All entries carry `Flags: uninsdeletekey` so uninstalling OpenBox cleans them
 up. The installer also calls `SHChangeNotify(SHCNE_ASSOCCHANGED)` so Explorer
 picks up the changes immediately — no logoff required.
 
+## macOS Installation / macOS 安装
+
+### Recommended: use the .pkg installer (推荐)
+
+1. Download `OpenBox-<ver>-macos.pkg` from Releases.
+2. Double-click to open it in **Installer.app**.
+3. Click through the welcome → readme → license → install screens.
+4. Enter your password when prompted (the installer copies `OpenBox.app` to `/Applications` and runs `lsregister` to register file associations).
+5. After install, double-clicking any `.zip / .tar.gz / .7z / .rar / .iso` file opens it in OpenBox. Right-click → "Open With" also lists OpenBox.
+
+**Apple Silicon note:** the .pkg is ad-hoc signed, which is enough for personal use. On first launch macOS Gatekeeper may still prompt — right-click the app → "Open" → "Open" to whitelist it. For broad public distribution you'd want to sign with a Developer ID and notarize; see "Build locally" below for the env vars to enable that in CI.
+
+### Portable / 绿色版
+
+If you don't want an installer, grab `openbox-macos-arm64.tar.gz` (Apple Silicon) or `openbox-macos-amd64.tar.gz` (Intel), untar, and run:
+
+```bash
+tar xzf openbox-macos-arm64.tar.gz
+xattr -d com.apple.quarantine openbox   # strip the Gatekeeper warning
+./openbox
+```
+
+No file associations are registered in portable mode — double-clicking a `.zip` will still use Archive Utility.
+
+### Build the .pkg locally / 本地构建
+
+```bash
+git clone https://github.com/samaidev/openbox.git
+cd openbox
+VERSION=0.1.0 bash build/macos/build.sh
+# Output: dist/OpenBox-0.1.0-macos.pkg
+```
+
+The build script:
+
+1. `go build`s the darwin binary (current architecture).
+2. Assembles `OpenBox.app/Contents/{MacOS,Resources}` with `Info.plist`, `icon.icns` (generated via `sips` + `iconutil`), `LICENSE`, `README.md`.
+3. Ad-hoc codesigns the bundle (required for Apple Silicon to run at all).
+4. `pkgbuild`s the .app into a component package.
+5. `productbuild` wraps it with the welcome/readme/license/conclusion screens from `build/macos/resources/`.
+6. Optionally `productsign`s with `APPLE_DEVELOPER_ID_INSTALLER` and notarizes via `NOTARY_PROFILE` if those env vars are set.
+
+### What the .pkg registers / 安装包注册了什么
+
+The installer writes:
+
+| Path | Effect |
+|------|--------|
+| `/Applications/OpenBox.app` | The app itself |
+| `~/Library/Preferences/io.github.samaidev.openbox.plist` | User prefs (language, last-used paths) — created on first launch, not by installer |
+| Launch Services registration (via `lsregister -f` in postinstall) | Tells Finder that `.zip / .tar / .tar.gz / .7z / .rar / .iso` should open with OpenBox |
+
+The `Info.plist` declares `CFBundleDocumentTypes` for all supported archive types. Standard UTIs (`public.zip-archive`, `public.tar-archive`, `public.iso-image`) are system-defined; for `.7z` and `.rar` the Info.plist also declares `UTImportedTypeDeclarations` so macOS knows about those extensions.
+
+To uninstall: drag `OpenBox.app` from `/Applications` to Trash. File associations become inert but harmless; macOS cleans them up on its own schedule.
+
 ## CLI / 命令行
 
 The same `openbox.exe` understands a few CLI flags. These are what the
@@ -144,22 +219,32 @@ go test ./internal/... -v
 openbox/
 ├── cmd/openbox/                          # main entry + Windows .syso resource
 ├── internal/
-│   ├── archiver/                         # format-agnostic Compress/Extract engine + tests
-│   ├── assets/                           # embedded icon (PNG)
+│   ├── archiver/                         # Compress/Extract engine + tests
+│   │   ├── archiver.go                   #   core: zip/tar/tar.gz + 7z/rar/iso extract
+│   │   ├── sevenzip_write.go             #   7z write via 7-Zip CLI subprocess
+│   │   ├── gzip.go                       #   gzip helpers
+│   │   └── archiver_test.go              #   round-trip tests for every format
+│   ├── assets/                           # embedded icon (PNG + SVG)
 │   ├── i18n/                             # bilingual string table
 │   └── ui/                               # Fyne GUI
 ├── build/
-│   ├── icons/                            # icon.ico (multi-size, for Windows installer)
-│   └── windows/
-│       ├── openbox.iss                   # Inno Setup script
-│       ├── openbox.manifest              # DPI + common-controls manifest
-│       ├── version.rc                    # VERSIONINFO resource
-│       └── build.ps1                     # local Windows build helper
+│   ├── icons/                            # icon.ico (multi-size, Windows installer)
+│   ├── windows/
+│   │   ├── openbox.iss                   # Inno Setup script
+│   │   ├── openbox.manifest              # DPI + common-controls manifest
+│   │   ├── version.rc                    # VERSIONINFO resource
+│   │   └── build.ps1                     # local Windows build helper
+│   └── macos/
+│       ├── Info.plist                    # app bundle metadata + file associations
+│       ├── Distribution.xml              # productbuild distribution
+│       ├── build.sh                      # local macOS build helper
+│       ├── scripts/postinstall           # lsregister call
+│       └── resources/                    # welcome/readme/license/conclusion HTML
 ├── scripts/
 │   └── gen_icon.py                       # regenerate icon.svg/png/ico
 ├── .github/workflows/
-│   ├── ci.yml                            # tests on every push
-│   └── release.yml                       # build Win/Mac/Linux + Win installer on tag push
+│   ├── ci.yml                            # tests on every push (incl. 7z write tests)
+│   └── release.yml                       # Win/Mac/Linux + Win installer + macOS .pkg
 ├── go.mod / go.sum
 ├── LICENSE                               # MIT
 └── README.md
@@ -169,28 +254,35 @@ openbox/
 
 Two workflows live under `.github/workflows/`:
 
-- **`ci.yml`** — runs on every push / PR to `main`. Runs `go vet`, `go test`, and a Linux smoke build. Catches regressions early.
-- **`release.yml`** — runs when you push a tag like `v0.1.0`. Builds Windows x64, macOS arm64 + amd64, Linux x64, plus the Inno Setup Windows installer, then attaches everything to a **draft GitHub Release** with auto-generated release notes. To publish, edit the draft and click "Publish release".
+- **`ci.yml`** — runs on every push / PR to `main`. Installs `p7zip-full` so the 7z write tests actually run, then does `go vet`, `go test`, and a Linux smoke build.
+- **`release.yml`** — runs when you push a tag like `v0.1.0`. Builds:
+  - Windows x64 portable `.zip`
+  - macOS arm64 + amd64 portable `.tar.gz`
+  - Linux x64 portable `.tar.gz`
+  - Windows Inno Setup `.exe` installer
+  - macOS `.pkg` installer (built on `macos-14`, ad-hoc signed; set `APPLE_DEVELOPER_ID_INSTALLER` + `NOTARY_PROFILE` secrets to enable full signing + notarization)
+  
+  Everything gets attached to a **draft GitHub Release** with auto-generated release notes. To publish, edit the draft and click "Publish release".
 
 To cut a new release:
 
 ```bash
 git tag v0.2.0
 git push origin v0.2.0
-# wait ~10 min for the workflow, then review the draft release
+# wait ~12 min for the workflow, then review the draft release
 ```
 
 ## Roadmap
 
 - [x] App icon + Windows installer
 - [x] Windows file-type associations + right-click menu
+- [x] macOS .pkg installer with file associations
+- [x] 7z compression (via 7-Zip CLI subprocess)
 - [x] CI/CD with auto-release on tag push
-- [ ] 7z write support (waiting for / will sponsor a Go 7z writer lib)
 - [ ] AES-encrypted zip extraction
 - [ ] Drag-and-drop file list
 - [ ] Per-file size + ratio in the compress list
 - [ ] CLI companion (`openbox c|x`) for headless use without GUI launch
-- [ ] macOS .pkg installer + code signing
 - [ ] Linux .deb / .rpm / Flatpak
 
 ## Acknowledgements
