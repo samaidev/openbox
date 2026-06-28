@@ -1,0 +1,20 @@
+# binaries
+/openbox
+/openbox.exe
+/openbox.app
+/dist/
+/bin/
+
+# go
+*.test
+*.out
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
