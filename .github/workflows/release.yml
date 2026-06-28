@@ -144,6 +144,25 @@ jobs:
           fi
           echo "version=$V" >> "$GITHUB_OUTPUT"
 
+      - name: Download ChineseSimplified.isl for Inno Setup
+        shell: pwsh
+        run: |
+          $url = "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl"
+          $dest = "C:\Program Files (x86)\Inno Setup 6\Languages\ChineseSimplified.isl"
+          # The Inno Setup action installs to a path that varies; probe both.
+          $candidates = @(
+            "C:\Program Files (x86)\Inno Setup 6\Languages",
+            "C:\Program Files\Inno Setup 6\Languages"
+          )
+          foreach ($dir in $candidates) {
+            if (Test-Path $dir) {
+              $dest = Join-Path $dir "ChineseSimplified.isl"
+              Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
+              Write-Host "Installed to $dest"
+              break
+            }
+          }
+
       - name: Compile installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.5
         with:

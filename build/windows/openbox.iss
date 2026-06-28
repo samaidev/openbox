@@ -49,8 +49,10 @@ PrivilegesRequired=admin
 UninstallDisplayIcon={app}\{#MyAppExeName}
 UninstallDisplayName={#MyAppName}
 ; Show the language picker on first install (defaults to user OS language).
+; ChineseSimplified.isl is NOT bundled with Inno Setup 6.5+ — download it
+; from https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl
+; into the Inno Setup Languages folder before building this .iss.
 ShowLanguageDialog=yes
-; Reuse the same language on subsequent upgrades.
 LanguageDetectionMethod=uilanguage
 
 [Languages]
