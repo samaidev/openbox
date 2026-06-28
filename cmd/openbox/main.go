@@ -1,15 +1,24 @@
-// Command openbox launches the OpenBox GUI.
+// Command openbox is the OpenBox archiver.
 //
-// Usage:
+// GUI mode (default):
 //
-//	openbox                  # launch GUI with no pre-filled inputs
-//	openbox <archive>        # launch GUI and pre-fill Extract tab with the archive
-//	openbox -c <file...>     # launch GUI and pre-fill Compress tab with the given files
-//	openbox -x <archive>     # alias for plain `<archive>`
-//	openbox -version         # print version and exit
+//	openbox                  launch GUI with no pre-filled inputs
+//	openbox <archive>        launch GUI with Extract tab pre-filled
+//	openbox -c <file|dir>... launch GUI with Compress tab pre-filled
+//	openbox -x <archive>     alias for plain <archive>
 //
-// On Windows, file associations and shell context-menu entries invoke
-// these forms (see build/windows/openbox.iss).
+// CLI mode (-cli, no GUI; for scripting + automated testing):
+//
+//	openbox -cli c <src>... <dest>     compress sources into dest
+//	openbox -cli x <archive> <dest>    extract archive into dest
+//
+// Other:
+//
+//	openbox -version         print version and exit
+//	openbox -h               show help
+//
+// On Windows, file associations invoke `openbox <archive>` (double-click)
+// and `openbox -c <file>` / `openbox -x <archive>` (right-click menu).
 package main
 
 import (
@@ -21,7 +30,9 @@ import (
 
 	"fyne.io/fyne/v2/app"
 
+	"github.com/samaidev/openbox/internal/archiver"
 	"github.com/samaidev/openbox/internal/assets"
+	"github.com/samaidev/openbox/internal/i18n"
 	"github.com/samaidev/openbox/internal/ui"
 )
 
@@ -31,20 +42,33 @@ var Version = "0.1.0"
 func main() {
 	var (
 		showVersion bool
+		cliMode     bool
 		compress    bool
 		extract     bool
+		level       int
+		password    string
 	)
 	flag.BoolVar(&showVersion, "version", false, "print version and exit")
-	flag.BoolVar(&compress, "c", false, "pre-fill Compress tab with the given files")
-	flag.BoolVar(&extract, "x", false, "pre-fill Extract tab with the given archive")
+	flag.BoolVar(&cliMode, "cli", false, "non-interactive CLI mode (no GUI)")
+	flag.BoolVar(&compress, "c", false, "GUI: pre-fill Compress tab with the given files")
+	flag.BoolVar(&extract, "x", false, "GUI: pre-fill Extract tab with the given archive")
+	flag.IntVar(&level, "level", 6, "compression level (0=store, 1=fastest, 3=fast, 6=normal, 9=max)")
+	flag.StringVar(&password, "p", "", "password (for 7z/rar/zip with encryption)")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "OpenBox — open-source cross-platform archiver")
 		fmt.Fprintln(os.Stderr, "")
-		fmt.Fprintln(os.Stderr, "Usage:")
+		fmt.Fprintln(os.Stderr, "GUI mode (default):")
 		fmt.Fprintln(os.Stderr, "  openbox                       launch GUI")
 		fmt.Fprintln(os.Stderr, "  openbox <archive>             open archive in Extract tab")
 		fmt.Fprintln(os.Stderr, "  openbox -c <file|dir>...      pre-fill Compress tab")
 		fmt.Fprintln(os.Stderr, "  openbox -x <archive>          same as plain <archive>")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "CLI mode (no GUI, for scripting/testing):")
+		fmt.Fprintln(os.Stderr, "  openbox -cli c <src>... <dest>     compress")
+		fmt.Fprintln(os.Stderr, "  openbox -cli x <archive> <dest>    extract")
+		fmt.Fprintln(os.Stderr, "  (combine with -level N -p PASSWORD)")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Other:")
 		fmt.Fprintln(os.Stderr, "  openbox -version              print version")
 	}
 	flag.Parse()
@@ -56,7 +80,11 @@ func main() {
 
 	args := flag.Args()
 
-	// Decide the initial tab + pre-filled inputs.
+	if cliMode {
+		os.Exit(runCLI(args, level, password))
+	}
+
+	// GUI mode: decide the initial tab + pre-filled inputs.
 	var initial *ui.InitialState
 	if compress && len(args) > 0 {
 		initial = &ui.InitialState{
@@ -64,19 +92,85 @@ func main() {
 			Sources: cleanPaths(args),
 		}
 	} else if len(args) > 0 {
-		// First positional arg is treated as an archive to extract.
 		initial = &ui.InitialState{
 			Tab:     ui.TabExtract,
 			Archive: cleanPath(args[0]),
 		}
 	}
-	_ = extract // accepted for symmetry; plain arg path already covers it
+	_ = extract
 
 	a := app.NewWithID("io.github.samaidev.openbox")
 	a.SetIcon(assets.AppIcon())
 
 	w := ui.NewWithState(a, initial)
 	w.ShowAndRun()
+}
+
+// runCLI executes the non-interactive compress/extract command.
+// Returns the process exit code.
+func runCLI(args []string, level int, password string) int {
+	if len(args) < 2 {
+		flag.Usage()
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "error: -cli requires a subcommand (c or x) and arguments")
+		return 2
+	}
+
+	cmd := args[0]
+	rest := args[1:]
+
+	prog := &archiver.Progress{
+		OnAdvance: func(done, total int, current string) {
+			if total > 0 {
+				fmt.Fprintf(os.Stderr, "\r[%d/%d] %s", done, total, current)
+			} else {
+				fmt.Fprintf(os.Stderr, "\r[?] %s", current)
+			}
+		},
+		OnDone: func() {
+			fmt.Fprintln(os.Stderr, "\rdone.                    ")
+		},
+	}
+
+	switch cmd {
+	case "c", "compress":
+		if len(rest) < 2 {
+			fmt.Fprintln(os.Stderr, "error: compress requires <src>... <dest>")
+			return 2
+		}
+		dest := cleanPath(rest[len(rest)-1])
+		sources := cleanPaths(rest[:len(rest)-1])
+		opts := archiver.Options{
+			Format:   archiver.FormatAuto, // detect from dest extension
+			Level:    archiver.Level(level),
+			Password: password,
+		}
+		if err := archiver.Compress(sources, dest, opts, prog); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			return 1
+		}
+		fmt.Printf("OK: created %s\n", dest)
+		return 0
+
+	case "x", "extract":
+		if len(rest) != 2 {
+			fmt.Fprintln(os.Stderr, "error: extract requires <archive> <dest>")
+			return 2
+		}
+		src := cleanPath(rest[0])
+		dest := cleanPath(rest[1])
+		opts := archiver.Options{Password: password}
+		if err := archiver.Extract(src, dest, opts, prog); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			return 1
+		}
+		fmt.Printf("OK: extracted to %s\n", dest)
+		return 0
+
+	default:
+		fmt.Fprintf(os.Stderr, "error: unknown subcommand %q (use 'c' or 'x')\n", cmd)
+		return 2
+	}
 }
 
 // cleanPath expands ~ and returns an absolute path when possible.
@@ -105,3 +199,7 @@ func cleanPaths(ps []string) []string {
 	}
 	return out
 }
+
+// keep i18n import alive even if not directly used in main (it's used
+// implicitly by ui package which reads i18n state at startup).
+var _ = i18n.English
