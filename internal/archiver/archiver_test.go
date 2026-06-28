@@ -206,7 +206,11 @@ func TestDetect(t *testing.T) {
 func TestSafeJoinRejectsTraversal(t *testing.T) {
 	// safeJoin must never produce a path that escapes the base dir.
 	// Traversal sequences are normalised so the result stays inside base.
-	base := "/tmp/dest"
+	// We use filepath.Clean on the base so the comparison works on both
+	// POSIX (where base "/tmp/dest" stays as-is) and Windows (where
+	// filepath.Clean("/tmp/dest") returns "\tmp\dest" with backslashes,
+	// matching what safeJoin returns internally).
+	base := filepath.Clean("/tmp/dest")
 	cases := []string{
 		"../../etc/passwd",
 		"/etc/passwd",
@@ -218,8 +222,13 @@ func TestSafeJoinRejectsTraversal(t *testing.T) {
 		if err != nil {
 			continue // explicit rejection is also acceptable
 		}
-		if !strings.HasPrefix(got, base+string(filepath.Separator)) && got != base {
-			t.Errorf("safeJoin escaped base: rel=%q got=%q", rel, got)
+		// On Windows the result may use backslashes; compare using
+		// filepath.Clean + HasPrefix on the cleaned form.
+		gotClean := filepath.Clean(got)
+		want := base + string(filepath.Separator)
+		if !strings.HasPrefix(gotClean, want) && gotClean != base {
+			t.Errorf("safeJoin escaped base: rel=%q got=%q (clean=%q, base=%q)",
+				rel, got, gotClean, base)
 		}
 	}
 }
