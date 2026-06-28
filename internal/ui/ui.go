@@ -62,6 +62,11 @@ type App struct {
 	langBtn   *widget.Button
 	openAfter *widget.Check
 	tabs      *container.AppTabs
+	// background-mode UI
+	backgroundBtn  *widget.Button
+	cancelBtn      *widget.Button
+	backgroundMode bool   // true when user clicked 'Background' while a task was running
+	lastTaskDesc   string // human-readable description of the current/last task
 
 	// state
 	busy bool
@@ -141,8 +146,15 @@ func NewWithState(a fyne.App, init *InitialState) fyne.Window {
 	app.logView.Disable()
 	app.openAfter = widget.NewCheck(i18n.T(i18n.OpenAfterDone), nil)
 
+	// Background + Cancel buttons — only visible while a task is running.
+	app.backgroundBtn = widget.NewButtonWithIcon(i18n.T(i18n.Background), theme.ViewRestoreIcon(), app.doBackground)
+	app.cancelBtn = widget.NewButtonWithIcon(i18n.T(i18n.CancelTask), theme.CancelIcon(), app.doCancel)
+	app.backgroundBtn.Hide()
+	app.cancelBtn.Hide()
+
 	bottom := container.NewVBox(
-		container.NewHBox(app.statusLbl, app.progress, layout.NewSpacer(), app.openAfter),
+		container.NewHBox(app.statusLbl, app.progress, layout.NewSpacer(),
+			app.backgroundBtn, app.cancelBtn, app.openAfter),
 		container.NewMax(app.logView),
 	)
 
@@ -176,6 +188,8 @@ func (a *App) rebuild() {
 	a.extractBtn.SetText(i18n.T(i18n.Extract))
 	a.extractHereBtn.SetText(i18n.T(i18n.ExtractHere))
 	a.extractSelBtn.SetText(i18n.T(i18n.ExtractSelected))
+	a.backgroundBtn.SetText(i18n.T(i18n.Background))
+	a.cancelBtn.SetText(i18n.T(i18n.CancelTask))
 	a.addFile.SetText(i18n.T(i18n.AddFiles))
 	a.addFolder.SetText(i18n.T(i18n.AddFolder))
 	a.removeSel.SetText(i18n.T(i18n.RemoveSelected))
@@ -498,6 +512,10 @@ func (a *App) setBusy(b bool) {
 		a.statusLbl.SetText(i18n.T(i18n.StatusWorking))
 		a.progress.Show()
 		a.progress.SetValue(0)
+		a.backgroundBtn.Show()
+		a.cancelBtn.Show()
+		// Update window title to show working state.
+		a.win.SetTitle(i18n.T(i18n.AppTitle) + " — " + i18n.T(i18n.StatusWorking))
 	} else {
 		a.compressBtn.Enable()
 		a.extractBtn.Enable()
@@ -508,12 +526,67 @@ func (a *App) setBusy(b bool) {
 		if a.contentSelIdx >= 0 && a.contentSelIdx < len(a.contentItems) && !a.contentItems[a.contentSelIdx].IsDir {
 			a.extractSelBtn.Enable()
 		}
+		a.progress.Hide()
+		a.backgroundBtn.Hide()
+		a.cancelBtn.Hide()
+		a.win.SetTitle(i18n.T(i18n.AppTitle))
+		// If we were running in background and just finished, surface
+		// a desktop notification so the user knows even if the window
+		// is minimised.
+		if a.backgroundMode {
+			a.backgroundMode = false
+			a.showDesktopNotification()
+			// Bring the window back to front so the user sees the result.
+			a.win.Show()
+			a.win.RequestFocus()
+		}
 	}
 }
 
 func (a *App) appendLog(s string) {
 	ts := time.Now().Format("15:04:05")
 	a.logView.SetText(fmt.Sprintf("%s%s\n", a.logView.Text, ts+"  "+s))
+}
+
+// doBackground minimises the window so the user can do other work while
+// the task runs in the background. The task continues in its goroutine;
+// when it finishes, setBusy(false) will surface a desktop notification
+// and bring the window back to front.
+func (a *App) doBackground() {
+	a.backgroundMode = true
+	a.win.Hide()
+	a.appendLog("--- " + i18n.T(i18n.Background) + " ---")
+}
+
+// doCancel is a placeholder for cancellation — true cancel requires
+// plumbing a context through archiver.Compress/Extract, which is a
+// bigger refactor. For now we just bring the window back so the user
+// can see the in-progress state and wait, or close the app to abort.
+func (a *App) doCancel() {
+	if a.backgroundMode {
+		a.backgroundMode = false
+		a.win.Show()
+		a.win.RequestFocus()
+		return
+	}
+	// Not in background mode — ask the user to confirm quitting,
+	// since we can't safely kill the goroutine mid-archive.
+	dialog.ShowConfirm(i18n.T(i18n.AppTitle), i18n.T(i18n.ConfirmQuit),
+		func(ok bool) {
+			if ok {
+				a.win.Close()
+			}
+		}, a.win)
+}
+
+// showDesktopNotification fires a desktop notification when a background
+// task finishes. Uses Fyne's app.SendNotification(), which on Windows
+// shows a toast notification and on macOS uses Notification Center.
+func (a *App) showDesktopNotification() {
+	title := i18n.T(i18n.TaskComplete)
+	body := i18n.Tf(i18n.TaskCompleteBody, map[string]string{"task": a.lastTaskDesc})
+	n := fyne.NewNotification(title, body)
+	a.app.SendNotification(n)
 }
 
 func (a *App) doCompress() {
@@ -542,6 +615,7 @@ func (a *App) doCompress() {
 
 func (a *App) runCompress(dest string) {
 	a.setBusy(true)
+	a.lastTaskDesc = i18n.Tf(i18n.CompressingTitle, map[string]string{"name": filepath.Base(dest)})
 	go func() {
 		defer a.setBusy(false)
 		format := formatFromString(a.formatSel.Selected)
@@ -642,6 +716,7 @@ func (a *App) doExtractSelected() {
 // otherwise the whole archive is extracted (via Extract).
 func (a *App) runExtract(src, dest, entryName string) {
 	a.setBusy(true)
+	a.lastTaskDesc = i18n.Tf(i18n.ExtractingTitle, map[string]string{"name": filepath.Base(src)})
 	go func() {
 		defer a.setBusy(false)
 		opts := archiver.Options{Password: a.exPw.Text}

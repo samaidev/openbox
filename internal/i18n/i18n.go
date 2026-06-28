@@ -102,6 +102,13 @@ const (
 	NoArchiveSelected
 	ListFailed
 	ExtractHereShort
+	Background
+	CancelTask
+	TaskComplete
+	TaskCompleteBody
+	TaskFailedBody
+	CompressingTitle
+	ExtractingTitle
 )
 
 // table maps a key -> [English, Chinese].
@@ -174,6 +181,13 @@ var table = map[key][2]string{
 	NoArchiveSelected:   {"No archive selected. Pick a file above.", "未选择压缩包，请在上方选择文件。"},
 	ListFailed:          {"Failed to list archive: ", "读取压缩包内容失败："},
 	ExtractHereShort:    {"Here", "当前目录"},
+	Background:          {"Background", "后台运行"},
+	CancelTask:          {"Cancel", "取消"},
+	TaskComplete:        {"Task complete", "任务完成"},
+	TaskCompleteBody:    {"{task} finished successfully.", "{task} 已完成。"},
+	TaskFailedBody:      {"{task} failed: {error}", "{task} 失败：{error}"},
+	CompressingTitle:    {"Compressing {name}", "正在压缩 {name}"},
+	ExtractingTitle:     {"Extracting {name}", "正在解压 {name}"},
 }
 
 // T returns the string for the current language.
