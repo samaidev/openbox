@@ -18,8 +18,8 @@
 #define MyAppPublisher   "samaidev"
 #define MyAppURL         "https://github.com/samaidev/openbox"
 #define MyAppExeName     "openbox.exe"
-#define MyAppVersion     "0.2.0"
-#define MyAppVersionFull "0.2.0.0"
+#define MyAppVersion     "0.2.1"
+#define MyAppVersionFull "0.2.1.0"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application.

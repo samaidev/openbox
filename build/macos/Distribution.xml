@@ -21,5 +21,5 @@
     <choice id="default" enabled="false">
         <pkg-ref id="io.github.samaidev.openbox"/>
     </choice>
-    <pkg-ref id="io.github.samaidev.openbox" version="0.2.0" onConclusion="none">OpenBox-component.pkg</pkg-ref>
+    <pkg-ref id="io.github.samaidev.openbox" version="0.2.1" onConclusion="none">OpenBox-component.pkg</pkg-ref>
 </installer-gui-script>
