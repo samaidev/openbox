@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"fyne.io/fyne/v2/app"
@@ -48,6 +49,7 @@ func main() {
 		level       int
 		password    string
 		here        bool
+		vol         string
 	)
 	flag.BoolVar(&showVersion, "version", false, "print version and exit")
 	flag.BoolVar(&cliMode, "cli", false, "non-interactive CLI mode (no GUI)")
@@ -56,6 +58,7 @@ func main() {
 	flag.IntVar(&level, "level", 6, "compression level (0=store, 1=fastest, 3=fast, 6=normal, 9=max)")
 	flag.StringVar(&password, "p", "", "password (for 7z/rar/zip with encryption)")
 	flag.BoolVar(&here, "here", false, "with -cli x: extract into a subfolder of the archive's parent dir, named after the archive (matches 7-Zip / WinRAR 'Extract to <name>\\')")
+	flag.StringVar(&vol, "vol", "", "split archive into volumes of this size (e.g. 100m, 1g, 500k, or raw bytes). Supported: 7z, zip.")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "OpenBox — open-source cross-platform archiver")
 		fmt.Fprintln(os.Stderr, "")
@@ -70,7 +73,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, "  openbox -cli x <archive> <dest>           extract")
 		fmt.Fprintln(os.Stderr, "  openbox -cli -here x <archive>            extract to <parent>/<name>/")
 		fmt.Fprintln(os.Stderr, "  openbox -cli l <archive>                  list contents")
-		fmt.Fprintln(os.Stderr, "  (combine with -level N -p PASSWORD)")
+		fmt.Fprintln(os.Stderr, "  openbox -cli -vol 100m c <src> <dest>.7z  split into 100MB volumes")
+		fmt.Fprintln(os.Stderr, "  (combine with -level N -p PASSWORD -vol SIZE)")
 		fmt.Fprintln(os.Stderr, "")
 		fmt.Fprintln(os.Stderr, "Other:")
 		fmt.Fprintln(os.Stderr, "  openbox -version              print version")
@@ -85,7 +89,7 @@ func main() {
 	args := flag.Args()
 
 	if cliMode {
-		os.Exit(runCLI(args, level, password, here))
+		os.Exit(runCLI(args, level, password, here, vol))
 	}
 
 	// GUI mode: decide the initial tab + pre-filled inputs.
@@ -112,7 +116,7 @@ func main() {
 
 // runCLI executes the non-interactive compress/extract command.
 // Returns the process exit code.
-func runCLI(args []string, level int, password string, here bool) int {
+func runCLI(args []string, level int, password string, here bool, vol string) int {
 	if len(args) < 1 {
 		flag.Usage()
 		fmt.Fprintln(os.Stderr, "")
@@ -149,11 +153,29 @@ func runCLI(args []string, level int, password string, here bool) int {
 			Level:    archiver.Level(level),
 			Password: password,
 		}
+		// Parse -vol flag if set (e.g. "100m", "1g", "500k", "1234567").
+		if vol != "" {
+			volBytes, err := parseVolumeSize(vol)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error: invalid -vol %q: %v\n", vol, err)
+				return 2
+			}
+			if volBytes < 1024 {
+				fmt.Fprintln(os.Stderr, "error: -vol must be at least 1k (1024 bytes)")
+				return 2
+			}
+			opts.VolumeSize = volBytes
+		}
 		if err := archiver.Compress(sources, dest, opts, prog); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			return 1
 		}
-		fmt.Printf("OK: created %s\n", dest)
+		// If split volumes were created, list them.
+		if opts.VolumeSize > 0 {
+			fmt.Printf("OK: created split archive at %s (.001, .002, ...)\n", dest)
+		} else {
+			fmt.Printf("OK: created %s\n", dest)
+		}
 		return 0
 
 	case "x", "extract":
@@ -246,6 +268,62 @@ func cleanPaths(ps []string) []string {
 		}
 	}
 	return out
+}
+
+// parseVolumeSize parses a human-friendly volume size string into bytes.
+// Supported suffixes (case-insensitive):
+//
+//	k / kb / kib   → 1024
+//	m / mb / mib   → 1024*1024
+//	g / gb / gib   → 1024*1024*1024
+//	(no suffix)    → raw bytes
+//
+// Examples: "100m" → 104857600, "1g" → 1073741824, "500k" → 512000,
+//
+//	"1234567" → 1234567.
+func parseVolumeSize(s string) (int64, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, fmt.Errorf("empty size")
+	}
+	low := strings.ToLower(s)
+	multiplier := int64(1)
+	numStr := low
+	switch {
+	case strings.HasSuffix(low, "gib"), strings.HasSuffix(low, "gb"), strings.HasSuffix(low, "g"):
+		multiplier = 1024 * 1024 * 1024
+		numStr = low[:len(low)-len("g")]
+		if strings.HasSuffix(low, "ib") || strings.HasSuffix(low, "b") {
+			numStr = low[:len(low)-len("gb")]
+			if strings.HasSuffix(low, "gib") {
+				numStr = low[:len(low)-len("gib")]
+			}
+		}
+	case strings.HasSuffix(low, "mib"), strings.HasSuffix(low, "mb"), strings.HasSuffix(low, "m"):
+		multiplier = 1024 * 1024
+		numStr = low[:len(low)-len("m")]
+		if strings.HasSuffix(low, "ib") || strings.HasSuffix(low, "b") {
+			numStr = low[:len(low)-len("mb")]
+			if strings.HasSuffix(low, "mib") {
+				numStr = low[:len(low)-len("mib")]
+			}
+		}
+	case strings.HasSuffix(low, "kib"), strings.HasSuffix(low, "kb"), strings.HasSuffix(low, "k"):
+		multiplier = 1024
+		numStr = low[:len(low)-len("k")]
+		if strings.HasSuffix(low, "ib") || strings.HasSuffix(low, "b") {
+			numStr = low[:len(low)-len("kb")]
+			if strings.HasSuffix(low, "kib") {
+				numStr = low[:len(low)-len("kib")]
+			}
+		}
+	}
+	numStr = strings.TrimSpace(numStr)
+	n, err := strconv.ParseInt(numStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid number %q: %w", numStr, err)
+	}
+	return n * multiplier, nil
 }
 
 // keep i18n import alive even if not directly used in main (it's used

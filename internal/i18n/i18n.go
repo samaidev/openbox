@@ -109,6 +109,8 @@ const (
 	TaskFailedBody
 	CompressingTitle
 	ExtractingTitle
+	VolumeSizeLabel
+	VolumeSizeHint
 )
 
 // table maps a key -> [English, Chinese].
@@ -188,6 +190,8 @@ var table = map[key][2]string{
 	TaskFailedBody:      {"{task} failed: {error}", "{task} 失败：{error}"},
 	CompressingTitle:    {"Compressing {name}", "正在压缩 {name}"},
 	ExtractingTitle:     {"Extracting {name}", "正在解压 {name}"},
+	VolumeSizeLabel:     {"Split volume", "分卷大小"},
+	VolumeSizeHint:      {"e.g. 100m / 1g / 500k (blank = no split)", "如 100m / 1g / 500k（留空=不分卷）"},
 }
 
 // T returns the string for the current language.

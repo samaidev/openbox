@@ -9,6 +9,33 @@ import (
 	"strings"
 )
 
+// formatVolumeSize converts a byte count into the size argument 7-Zip's
+// -v flag expects. We use the largest whole-unit suffix that divides the
+// size evenly, falling back to raw bytes for non-round numbers.
+//
+// Examples:
+//
+//	1048576        -> "1m"
+//	10485760       -> "10m"
+//	1073741824     -> "1g"
+//	1500000        -> "1500000b"
+func formatVolumeSize(bytes int64) string {
+	const (
+		kb = 1024
+		mb = kb * 1024
+		gb = mb * 1024
+	)
+	switch {
+	case bytes%gb == 0 && bytes >= gb:
+		return fmt.Sprintf("%dg", bytes/gb)
+	case bytes%mb == 0 && bytes >= mb:
+		return fmt.Sprintf("%dm", bytes/mb)
+	case bytes%kb == 0 && bytes >= kb:
+		return fmt.Sprintf("%dk", bytes/kb)
+	}
+	return fmt.Sprintf("%db", bytes)
+}
+
 // SevenZipWriterAvailable reports whether the system has a 7-Zip CLI binary
 // that OpenBox can shell out to for creating .7z archives. The official
 // 7-Zip (Windows), p7zip (Linux), and 7-zip via Homebrew (macOS) are all
@@ -87,6 +114,12 @@ func write7zViaBinary(sources []string, dest string, opts Options, p *Progress) 
 			// -mhe=on encrypts archive headers (file names + sizes) too,
 			// so the archive is fully opaque without the password.
 			args = append(args, "-p"+opts.Password, "-mhe=on")
+		}
+		// Split-volume support: 7-Zip's -v{size} flag writes
+		// archive.7z.001, archive.7z.002, ... automatically. Size
+		// suffixes: b, k, m, g (case-insensitive). We pass raw bytes.
+		if opts.VolumeSize > 0 {
+			args = append(args, "-v"+formatVolumeSize(opts.VolumeSize))
 		}
 		args = append(args, base)
 

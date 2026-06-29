@@ -97,10 +97,11 @@ const (
 
 // Options controls a Compress or Extract operation.
 type Options struct {
-	Format   Format
-	Level    Level
-	Password string // currently used for 7z + rar extraction
-	RootDir  string // when set, paths inside the archive are made relative to this dir
+	Format     Format
+	Level      Level
+	Password   string // currently used for 7z + rar extraction
+	RootDir    string // when set, paths inside the archive are made relative to this dir
+	VolumeSize int64  // split archive into volumes of this many bytes; 0 = single file. Supported: 7z, zip. 1MB minimum enforced upstream.
 }
 
 // Progress is called periodically with counts. done/total refer to file count.
@@ -143,7 +144,13 @@ func Compress(sources []string, dest string, opts Options, p *Progress) error {
 
 	switch opts.Format {
 	case FormatZip:
-		err = writeZip(files, dest, opts, p)
+		if opts.VolumeSize > 0 {
+			// Split-volume zip: write a normal zip to a temp file, then
+			// slice it into N parts of opts.VolumeSize bytes each.
+			err = writeZipSplit(files, dest, opts, p)
+		} else {
+			err = writeZip(files, dest, opts, p)
+		}
 	case FormatTar:
 		err = writeTar(files, dest, opts, false, p)
 	case FormatTarGz:
@@ -159,10 +166,20 @@ func Compress(sources []string, dest string, opts Options, p *Progress) error {
 }
 
 // Extract unpacks archive at src into destDir (created if missing).
+//
+// If src is a split-volume part (e.g. "archive.zip.001" or "archive.7z.001"),
+// OpenBox automatically finds and reads all sibling parts (.002, .003, ...).
 func Extract(src, destDir string, opts Options, p *Progress) error {
 	f := opts.Format
 	if f == FormatAuto {
-		f = Detect(src)
+		// Detect split-volume archives first: if the file ends in .001,
+		// look at the parent extension to figure out the real format.
+		if isSplitVolumePart(src) {
+			realName := stripSplitSuffix(src)
+			f = Detect(realName)
+		} else {
+			f = Detect(src)
+		}
 		if f == FormatAuto {
 			return fmt.Errorf("cannot detect format from %s", src)
 		}
@@ -173,14 +190,24 @@ func Extract(src, destDir string, opts Options, p *Progress) error {
 	var err error
 	switch f {
 	case FormatZip:
-		err = extractZip(src, destDir, p)
+		// If src is a .zip.001 part, concatenate all parts into a
+		// temporary single zip first, then extract.
+		if isSplitVolumePart(src) {
+			err = extractZipSplit(src, destDir, p)
+		} else {
+			err = extractZip(src, destDir, p)
+		}
 	case FormatTar:
 		err = extractTar(src, destDir, false, p)
 	case FormatTarGz:
 		err = extractTar(src, destDir, true, p)
 	case Format7z:
+		// bodgit/sevenzip OpenReader automatically follows .7z.001,
+		// .7z.002, ... volumes, so we just pass the .001 filename.
 		err = extract7z(src, destDir, opts, p)
 	case FormatRar:
+		// rardecode OpenReader automatically follows .part01.rar,
+		// .part02.rar, ... volumes.
 		err = extractRar(src, destDir, opts, p)
 	case FormatIso:
 		err = extractIso(src, destDir, p)

@@ -33,7 +33,13 @@ type Entry struct {
 func List(src string, opts Options) ([]Entry, error) {
 	f := opts.Format
 	if f == FormatAuto {
-		f = Detect(src)
+		// Detect split-volume archives first.
+		if isSplitVolumePart(src) {
+			realName := stripSplitSuffix(src)
+			f = Detect(realName)
+		} else {
+			f = Detect(src)
+		}
 		if f == FormatAuto {
 			return nil, fmt.Errorf("cannot detect format from %s", src)
 		}
@@ -41,14 +47,20 @@ func List(src string, opts Options) ([]Entry, error) {
 
 	switch f {
 	case FormatZip:
+		// If src is a .zip.001 part, merge to a temp file then list.
+		if isSplitVolumePart(src) {
+			return listZipSplit(src)
+		}
 		return listZip(src)
 	case FormatTar:
 		return listTar(src, false)
 	case FormatTarGz:
 		return listTar(src, true)
 	case Format7z:
+		// bodgit/sevenzip follows .7z.001 automatically.
 		return list7z(src, opts)
 	case FormatRar:
+		// rardecode follows .part01.rar automatically.
 		return listRar(src, opts)
 	case FormatIso:
 		return listIso(src)

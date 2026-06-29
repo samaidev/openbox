@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,6 +38,7 @@ type App struct {
 	levelSel    *widget.Select
 	pwEntry     *widget.Entry
 	targetPath  *widget.Entry
+	volEntry    *widget.Entry
 	browseOut   *widget.Button
 	compressBtn *widget.Button
 
@@ -286,6 +288,9 @@ func (a *App) buildCompressTab() {
 	a.pwEntry = widget.NewPasswordEntry()
 	a.pwEntry.SetPlaceHolder(i18n.T(i18n.PasswordLabel))
 
+	a.volEntry = widget.NewEntry()
+	a.volEntry.SetPlaceHolder(i18n.T(i18n.VolumeSizeHint))
+
 	a.targetPath = widget.NewEntry()
 	a.targetPath.SetPlaceHolder(i18n.T(i18n.TargetLabel))
 
@@ -306,6 +311,7 @@ func (a *App) compressPanel() fyne.CanvasObject {
 		widget.NewLabel(i18n.T(i18n.FormatLabel)), a.formatSel,
 		widget.NewLabel(i18n.T(i18n.LevelLabel)), a.levelSel,
 		widget.NewLabel(i18n.T(i18n.PasswordLabel)), a.pwEntry,
+		widget.NewLabel(i18n.T(i18n.VolumeSizeLabel)), a.volEntry,
 		widget.NewLabel(i18n.T(i18n.TargetLabel)), container.NewBorder(nil, nil, nil, a.browseOut, a.targetPath),
 	)
 	actions := container.NewHBox(a.addFile, a.addFolder, a.removeSel, a.clearAll)
@@ -625,6 +631,23 @@ func (a *App) runCompress(dest string) {
 			Level:    level,
 			Password: a.pwEntry.Text,
 		}
+		// Parse volume size from the UI field, if non-empty.
+		if v := strings.TrimSpace(a.volEntry.Text); v != "" {
+			vb, err := parseVolumeSizeUI(v)
+			if err != nil {
+				a.statusLbl.SetText(i18n.T(i18n.StatusFailed))
+				a.appendLog("invalid volume size: " + err.Error())
+				dialog.ShowError(fmt.Errorf("invalid volume size: %v", err), a.win)
+				return
+			}
+			if vb < 1024 {
+				a.statusLbl.SetText(i18n.T(i18n.StatusFailed))
+				a.appendLog("volume size must be at least 1k")
+				dialog.ShowError(fmt.Errorf("volume size must be at least 1k (1024 bytes)"), a.win)
+				return
+			}
+			opts.VolumeSize = vb
+		}
 		prog := &archiver.Progress{
 			OnAdvance: func(done, total int, current string) {
 				if total > 0 {
@@ -801,6 +824,39 @@ func openInOS(path string) {
 	default:
 		_ = execCmd("xdg-open", path)
 	}
+}
+
+// parseVolumeSizeUI parses a human-friendly volume size string (e.g.
+// "100m", "1g", "500k") into bytes. Empty string returns 0.
+func parseVolumeSizeUI(s string) (int64, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, nil
+	}
+	low := strings.ToLower(s)
+	multiplier := int64(1)
+	numStr := low
+	// Order matters: check 2-char suffixes before 1-char.
+	for _, suffix := range []string{"gib", "mib", "kib", "gb", "mb", "kb", "g", "m", "k"} {
+		if strings.HasSuffix(low, suffix) {
+			switch suffix[0] {
+			case 'g':
+				multiplier = 1024 * 1024 * 1024
+			case 'm':
+				multiplier = 1024 * 1024
+			case 'k':
+				multiplier = 1024
+			}
+			numStr = low[:len(low)-len(suffix)]
+			break
+		}
+	}
+	numStr = strings.TrimSpace(numStr)
+	n, err := strconv.ParseInt(numStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid number %q: %w", numStr, err)
+	}
+	return n * multiplier, nil
 }
 
 // applyInitialState pre-fills the Compress or Extract tab from CLI args.
