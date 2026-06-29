@@ -8,6 +8,10 @@
 ;   * Right-click "Extract with OpenBox" on the supported archive types
 ;   * Clean uninstall (associations + context menu entries removed)
 ;
+; Right-click menu text follows the installer language the user picks on
+; the first wizard screen (English / ChineseSimplified). The mapping lives
+; in [CustomMessages] below and is referenced from [Registry] via {cm:...}.
+;
 ; Build:
 ;   iscc build\windows\openbox.iss
 ;
@@ -18,8 +22,8 @@
 #define MyAppPublisher   "samaidev"
 #define MyAppURL         "https://github.com/samaidev/openbox"
 #define MyAppExeName     "openbox.exe"
-#define MyAppVersion     "0.3.0"
-#define MyAppVersionFull "0.3.0.0"
+#define MyAppVersion     "0.4.0"
+#define MyAppVersionFull "0.4.0.0"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application.
@@ -63,6 +67,24 @@ Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.i
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "associate"; Description: "{cm:AssocFileExtension,OpenBox,.zip .rar .7z .tar .tgz .tar.gz .iso}"; GroupDescription: "File associations:"
 
+; ----------------------------------------------------------------------------
+; Per-language right-click menu text. {cm:Name} resolves to the entry whose
+; prefix matches the active installer language, so picking ChineseSimplified
+; on the first wizard screen yields Chinese menu entries, and picking English
+; yields English menu entries.
+; ----------------------------------------------------------------------------
+[CustomMessages]
+english.CompressMenu=Compress with OpenBox
+english.ExtractMenu=Extract with OpenBox
+english.ExtractHereMenu=Extract here with OpenBox
+english.ArchiveDesc=OpenBox Archive
+english.ProgIDDesc=OpenBox Archive
+chinesesimplified.CompressMenu=用 OpenBox 压缩
+chinesesimplified.ExtractMenu=用 OpenBox 解压
+chinesesimplified.ExtractHereMenu=用 OpenBox 解压到当前目录
+chinesesimplified.ArchiveDesc=OpenBox 压缩包
+chinesesimplified.ProgIDDesc=OpenBox 压缩包
+
 [Files]
 ; openbox.exe is expected to be in dist\openbox-windows-amd64\openbox.exe
 ; (produced by `go build` + staged by build-installer.bat / CI workflow).
@@ -96,15 +118,15 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}
 ; ----------------------------------------------------------------------------
 [Registry]
 ; Define the ProgID once.
-Root: HKA; Subkey: "Software\Classes\OpenBox.Archive"; ValueType: string; ValueName: ""; ValueData: "OpenBox Archive"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\OpenBox.Archive"; ValueType: string; ValueName: ""; ValueData: "{cm:ProgIDDesc}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName},0"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Flags: uninsdeletekey
-Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\extract"; ValueType: string; ValueName: ""; ValueData: "Extract with OpenBox"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\extract"; ValueType: string; ValueName: ""; ValueData: "{cm:ExtractMenu}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\extract\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" -x ""%1"""; Flags: uninsdeletekey
 ; "Extract here" — extracts silently to <archive-parent-dir>\<archive-basename>\
 ; without launching the GUI. Matches the 7-Zip / WinRAR right-click entry
 ; that most users expect.
-Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\extractHere"; ValueType: string; ValueName: ""; ValueData: "Extract here with OpenBox"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\extractHere"; ValueType: string; ValueName: ""; ValueData: "{cm:ExtractHereMenu}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\extractHere"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#MyAppExeName},0"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\OpenBox.Archive\shell\extractHere\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" -cli -here x ""%1"""; Flags: uninsdeletekey
 
@@ -136,22 +158,24 @@ Root: HKA; Subkey: "Software\Classes\.iso\OpenWithProgids"; ValueType: string; V
 ;   * files (right-click in Explorer or in a folder background)
 ;   * directories (right-click on a folder)
 ;   * directory background (right-click on empty space inside a folder)
+;
+; Menu text uses {cm:CompressMenu} so it follows the installer language.
 ; ----------------------------------------------------------------------------
-Root: HKA; Subkey: "Software\Classes\*\shell\OpenBoxCompress"; ValueType: string; ValueName: ""; ValueData: "Compress with OpenBox"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\*\shell\OpenBoxCompress"; ValueType: string; ValueName: ""; ValueData: "{cm:CompressMenu}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\*\shell\OpenBoxCompress"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#MyAppExeName},0"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\*\shell\OpenBoxCompress\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" -c ""%1"""; Flags: uninsdeletekey
 
-Root: HKA; Subkey: "Software\Classes\Directory\shell\OpenBoxCompress"; ValueType: string; ValueName: ""; ValueData: "Compress with OpenBox"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\Directory\shell\OpenBoxCompress"; ValueType: string; ValueName: ""; ValueData: "{cm:CompressMenu}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\Directory\shell\OpenBoxCompress"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#MyAppExeName},0"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\Directory\shell\OpenBoxCompress\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" -c ""%1"""; Flags: uninsdeletekey
 
-Root: HKA; Subkey: "Software\Classes\Directory\Background\shell\OpenBoxCompress"; ValueType: string; ValueName: ""; ValueData: "Compress with OpenBox"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\Directory\Background\shell\OpenBoxCompress"; ValueType: string; ValueName: ""; ValueData: "{cm:CompressMenu}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\Directory\Background\shell\OpenBoxCompress"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#MyAppExeName},0"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\Directory\Background\shell\OpenBoxCompress\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" -c ""%V"""; Flags: uninsdeletekey
 
 ; Also add "Extract with OpenBox" on Directory entries (e.g. right-click a .zip
 ; that's also a folder? rare, but cheap to add).
-Root: HKA; Subkey: "Software\Classes\Directory\shell\OpenBoxExtract"; ValueType: string; ValueName: ""; ValueData: "Extract with OpenBox"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\Directory\shell\OpenBoxExtract"; ValueType: string; ValueName: ""; ValueData: "{cm:ExtractMenu}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\Directory\shell\OpenBoxExtract"; ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#MyAppExeName},0"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\Directory\shell\OpenBoxExtract\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" -x ""%1"""; Flags: uninsdeletekey
 
