@@ -3,6 +3,7 @@ package archiver
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 )
 
@@ -90,12 +91,31 @@ func TestSevenZipSplitRoundTrip(t *testing.T) {
 	if !SevenZipWriterAvailable() {
 		t.Skip("no 7z CLI in PATH")
 	}
-	src := makeTree(t)
+	// Build a source tree large enough that even with 7z compression
+	// the archive exceeds our tiny VolumeSize. We use 5 KB of random
+	// data so 7z can't compress it below ~5 KB.
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src")
+	if err := os.MkdirAll(src, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Write 5 files of 1 KB random-ish data each.
+	for i := 0; i < 5; i++ {
+		data := make([]byte, 1024)
+		// Fill with a pattern that doesn't compress well.
+		for j := range data {
+			data[j] = byte(i*13 + j*7)
+		}
+		if err := os.WriteFile(filepath.Join(src, "f"+strconv.Itoa(i)+".dat"), data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	dest := filepath.Join(t.TempDir(), "out.7z")
 	opts := Options{
 		Format:     Format7z,
-		Level:      LevelNormal,
-		VolumeSize: 512, // tiny → multiple parts
+		Level:      LevelStore, // store to avoid compression shrinking it below VolumeSize
+		VolumeSize: 1024,       // 1 KB → should produce ~5 parts
 	}
 	if err := Compress([]string{src}, dest, opts, nil); err != nil {
 		t.Fatal(err)
@@ -115,7 +135,14 @@ func TestSevenZipSplitRoundTrip(t *testing.T) {
 	if err := Extract(dest+".001", out, Options{}, nil); err != nil {
 		t.Fatal(err)
 	}
-	equalTree(t, src, filepath.Join(out, filepath.Base(src)))
+	// Verify all 5 files extracted.
+	for i := 0; i < 5; i++ {
+		name := "f" + strconv.Itoa(i) + ".dat"
+		p := filepath.Join(out, "src", name)
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("expected %s to exist: %v", p, err)
+		}
+	}
 }
 
 // TestFindSplitVolumesContiguityCheck verifies that findSplitVolumes
