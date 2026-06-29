@@ -90,6 +90,17 @@ type App struct {
         helpBtn   *widget.Button
         openAfter *widget.Check
         tabs      *container.AppTabs
+        // form labels (need updating on language switch)
+        srcLbl        *widget.Label // "Source" / "源文件"
+        tgtLbl        *widget.Label // "Target" / "目标位置"
+        pwLbl         *widget.Label // "Password (optional)" / "密码（可选）"
+        exSrcLbl      *widget.Label
+        exTgtLbl      *widget.Label
+        exPwLbl       *widget.Label
+        fmtLbl        *widget.Label // "Format" / "格式"
+        lvlLbl        *widget.Label // "Level" / "压缩级别"
+        volLbl        *widget.Label // "Split volume" / "分卷大小"
+        contentsHdrLbl *widget.Label // "Archive contents" / "压缩包内容"
         // background-mode UI
         backgroundBtn  *widget.Button
         cancelBtn      *widget.Button
@@ -263,6 +274,37 @@ func (a *App) rebuild() {
                 a.tabs.Items[1].Text = i18n.T(i18n.TabExtract)
                 a.tabs.Refresh()
         }
+        // Update form labels.
+        if a.fmtLbl != nil {
+                a.fmtLbl.SetText(i18n.T(i18n.FormatLabel))
+        }
+        if a.lvlLbl != nil {
+                a.lvlLbl.SetText(i18n.T(i18n.LevelLabel))
+        }
+        if a.pwLbl != nil {
+                a.pwLbl.SetText(i18n.T(i18n.PasswordLabel))
+        }
+        if a.volLbl != nil {
+                a.volLbl.SetText(i18n.T(i18n.VolumeSizeLabel))
+        }
+        if a.tgtLbl != nil {
+                a.tgtLbl.SetText(i18n.T(i18n.TargetLabel))
+        }
+        if a.srcLbl != nil {
+                a.srcLbl.SetText(i18n.T(i18n.SourceLabel))
+        }
+        if a.exSrcLbl != nil {
+                a.exSrcLbl.SetText(i18n.T(i18n.SourceLabel))
+        }
+        if a.exTgtLbl != nil {
+                a.exTgtLbl.SetText(i18n.T(i18n.TargetLabel))
+        }
+        if a.exPwLbl != nil {
+                a.exPwLbl.SetText(i18n.T(i18n.PasswordLabel))
+        }
+        if a.contentsHdrLbl != nil {
+                a.contentsHdrLbl.SetText(i18n.T(i18n.ArchiveContents))
+        }
         // Rebuild the header row (localized labels + sort indicator) and
         // refresh the list so type strings pick up the new language.
         if a.headerRow != nil {
@@ -271,6 +313,8 @@ func (a *App) rebuild() {
                 a.headerRow.Refresh()
         }
         a.contentList.Refresh()
+        // Re-count entries in the current language.
+        a.refreshEntryCount()
 }
 
 // refreshHeader rebuilds the column-header row with the current language
@@ -368,12 +412,17 @@ func (a *App) buildCompressTab() {
 }
 
 func (a *App) compressPanel() fyne.CanvasObject {
+        a.fmtLbl = widget.NewLabel(i18n.T(i18n.FormatLabel))
+        a.lvlLbl = widget.NewLabel(i18n.T(i18n.LevelLabel))
+        a.pwLbl = widget.NewLabel(i18n.T(i18n.PasswordLabel))
+        a.volLbl = widget.NewLabel(i18n.T(i18n.VolumeSizeLabel))
+        a.tgtLbl = widget.NewLabel(i18n.T(i18n.TargetLabel))
         form := container.New(layout.NewFormLayout(),
-                widget.NewLabel(i18n.T(i18n.FormatLabel)), a.formatSel,
-                widget.NewLabel(i18n.T(i18n.LevelLabel)), a.levelSel,
-                widget.NewLabel(i18n.T(i18n.PasswordLabel)), a.pwEntry,
-                widget.NewLabel(i18n.T(i18n.VolumeSizeLabel)), a.volEntry,
-                widget.NewLabel(i18n.T(i18n.TargetLabel)), container.NewBorder(nil, nil, nil, a.browseOut, a.targetPath),
+                a.fmtLbl, a.formatSel,
+                a.lvlLbl, a.levelSel,
+                a.pwLbl, a.pwEntry,
+                a.volLbl, a.volEntry,
+                a.tgtLbl, container.NewBorder(nil, nil, nil, a.browseOut, a.targetPath),
         )
         actions := container.NewHBox(a.addFile, a.addFolder, a.removeSel, a.clearAll)
         return container.NewBorder(nil, container.NewVBox(form, a.compressBtn), nil, nil,
@@ -591,17 +640,21 @@ func (a *App) buildExtractTab() {
 
 
 func (a *App) extractPanel() fyne.CanvasObject {
+        a.exSrcLbl = widget.NewLabel(i18n.T(i18n.SourceLabel))
+        a.exTgtLbl = widget.NewLabel(i18n.T(i18n.TargetLabel))
+        a.exPwLbl = widget.NewLabel(i18n.T(i18n.PasswordLabel))
         form := container.New(layout.NewFormLayout(),
-                widget.NewLabel(i18n.T(i18n.SourceLabel)), container.NewBorder(nil, nil, nil, a.exBrowse, a.exSrc),
-                widget.NewLabel(i18n.T(i18n.TargetLabel)), container.NewBorder(nil, nil, nil, a.exDestBrw, a.exDest),
-                widget.NewLabel(i18n.T(i18n.PasswordLabel)), a.exPw,
+                a.exSrcLbl, container.NewBorder(nil, nil, nil, a.exBrowse, a.exSrc),
+                a.exTgtLbl, container.NewBorder(nil, nil, nil, a.exDestBrw, a.exDest),
+                a.exPwLbl, a.exPw,
         )
 
         // Header above the content list: "Archive contents" label on the
         // left, WinRAR-style toolbar (Find / Add / Delete / Extract selected)
         // on the right.
+        a.contentsHdrLbl = widget.NewLabel(i18n.T(i18n.ArchiveContents))
         contentHeader := container.NewHBox(
-                widget.NewLabel(i18n.T(i18n.ArchiveContents)),
+                a.contentsHdrLbl,
                 a.contentLbl,
                 layout.NewSpacer(),
                 a.findBtn,
@@ -658,12 +711,22 @@ func (a *App) refreshContentList(src string) {
                 }
                 a.contentAll = entries
                 a.applyContentFilter()
-                unit := "entries"
-                if i18n.Get() == i18n.SimplifiedChinese {
-                        unit = "项"
-                }
-                a.contentLbl.SetText(fmt.Sprintf("%d %s", len(entries), unit))
+                a.refreshEntryCount()
         }()
+}
+
+// refreshEntryCount updates the contentLbl to show the total entry count
+// in the current language ("N entries" / "N 项").
+func (a *App) refreshEntryCount() {
+        if a.contentLbl == nil {
+                return
+        }
+        n := len(a.contentAll)
+        unit := "entries"
+        if i18n.Get() == i18n.SimplifiedChinese {
+                unit = "项"
+        }
+        a.contentLbl.SetText(fmt.Sprintf("%d %s", n, unit))
 }
 
 // applyContentFilter recomputes contentItems from contentAll based on the
