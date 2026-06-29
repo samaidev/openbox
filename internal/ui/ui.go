@@ -1619,12 +1619,19 @@ func levelFromUI(s string) archiver.Level {
         return archiver.LevelNormal
 }
 
+// openInOS opens a file or folder with the OS default application.
+// On Windows we use 'cmd /c start "" <path>' which launches the file
+// with its associated app (Notepad for .txt, etc.) and returns immediately.
+// Using 'explorer <path>' would open File Explorer on the containing
+// folder instead of launching the file's default app.
 func openInOS(path string) {
         switch runtime.GOOS {
         case "darwin":
                 _ = execCmd("open", path)
         case "windows":
-                _ = execCmd("explorer", path)
+                // 'start "" <path>' — the empty title is required to avoid
+                // start treating a quoted path as the title.
+                _ = execCmd("cmd", "/c", "start", "", path)
         default:
                 _ = execCmd("xdg-open", path)
         }

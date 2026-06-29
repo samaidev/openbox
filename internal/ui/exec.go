@@ -1,10 +1,13 @@
 package ui
 
-// execCmd is a thin wrapper around exec.Command so the rest of the package
-// doesn't need to import os/exec directly.
-// On Windows, execHidden (from exec_windows.go) is used to suppress the
-// console window; on other platforms this just starts the command.
+import "os/exec"
+
+// execCmd launches a command in the background (fire-and-forget) without
+// waiting for it to complete. On Windows the console window is hidden
+// via execHiddenStart (see exec_windows.go).
 func execCmd(name string, args ...string) error {
-	_, err := execHidden(name, args...)
-	return err
+	return execHiddenStart(name, args...)
 }
+
+// keep os/exec import alive
+var _ = exec.Command
