@@ -1,0 +1,9 @@
+feat(icon): unified OpenBox logo across app + website
+
+New design: open-box silhouette with upward arrow in SamAI brand
+gradient (#3b82f6 to #06b6d4). Same SVG source drives both the
+embedded app icon (icon.png 512x512), the Windows installer
+icon.ico (16-256 multi-size), and the macOS icon.icns (16-1024
+multi-size via iconutil).
+
+Completely original geometric design - no third-party trademark references.
