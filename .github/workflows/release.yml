@@ -172,7 +172,7 @@ jobs:
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.5
         with:
           path: build/windows/openbox.iss
-          options: /Q
+          options: /Q /DMyAppVersion=${{ steps.ver.outputs.version }} /DMyAppVersionFull=${{ steps.ver.outputs.version }}.0
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4

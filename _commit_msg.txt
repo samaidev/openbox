@@ -1,9 +1,12 @@
-feat(icon): unified OpenBox logo across app + website
+fix(release): pass version to Inno Setup so installer filename matches tag
 
-New design: open-box silhouette with upward arrow in SamAI brand
-gradient (#3b82f6 to #06b6d4). Same SVG source drives both the
-embedded app icon (icon.png 512x512), the Windows installer
-icon.ico (16-256 multi-size), and the macOS icon.icns (16-1024
-multi-size via iconutil).
+The iss file hardcoded MyAppVersion=0.4.2, so every release built an installer
+named OpenBox-0.4.2-windows-amd64-setup.exe regardless of the actual tag.
 
-Completely original geometric design - no third-party trademark references.
+Fix: wrap the version defines in #ifndef so they can be overridden from the
+iscc command line via /D flags. release.yml now passes
+/DMyAppVersion=<tag-version> /DMyAppVersionFull=<tag-version>.0 so the
+installer filename always matches the release tag.
+
+Also revert the broken v0.4.3 release (had wrong Windows installer name)
+and will cut v0.4.4 with the fix.
