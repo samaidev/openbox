@@ -1,6 +1,6 @@
 1 VERSIONINFO
-FILEVERSION     0,3,0,0
-PRODUCTVERSION  0,3,0,0
+FILEVERSION     0,4,5,0
+PRODUCTVERSION  0,4,5,0
 FILEOS          VOS_NT_WINDOWS32
 FILETYPE        VFT_APP
 FILESUBTYPE     VFT2_UNKNOWN
@@ -11,24 +11,24 @@ FILESUBTYPE     VFT2_UNKNOWN
     {
       VALUE "CompanyName",      "samaidev"
       VALUE "FileDescription",  "OpenBox — open-source cross-platform archiver"
-      VALUE "FileVersion",      "0.2.0.0"
+      VALUE "FileVersion",      "0.4.5.0"
       VALUE "InternalName",     "openbox"
       VALUE "LegalCopyright",   "Copyright (c) 2026 samaidev — MIT License"
       VALUE "OriginalFilename", "openbox.exe"
       VALUE "ProductName",      "OpenBox"
-      VALUE "ProductVersion",   "0.2.0.0"
+      VALUE "ProductVersion",   "0.4.5.0"
       VALUE "License",          "MIT — see https://github.com/samaidev/openbox/blob/main/LICENSE"
     }
     BLOCK "080404b0"  // LangID=0x0804 (zh-CN), Codepage=1200
     {
       VALUE "CompanyName",      "samaidev"
       VALUE "FileDescription",  "OpenBox — 开源跨平台压缩工具"
-      VALUE "FileVersion",      "0.2.0.0"
+      VALUE "FileVersion",      "0.4.5.0"
       VALUE "InternalName",     "openbox"
       VALUE "LegalCopyright",   "Copyright (c) 2026 samaidev — MIT 协议"
       VALUE "OriginalFilename", "openbox.exe"
       VALUE "ProductName",      "OpenBox"
-      VALUE "ProductVersion",   "0.2.0.0"
+      VALUE "ProductVersion",   "0.4.5.0"
     }
   }
   BLOCK "VarFileInfo"
@@ -36,3 +36,7 @@ FILESUBTYPE     VFT2_UNKNOWN
     VALUE "Translation", 0x0409, 1200, 0x0804, 1200
   }
 }
+
+// Application icon — must be the FIRST icon resource (ID 1) so Windows
+// uses it for the taskbar, Alt-Tab, and file explorer display.
+1 ICON "..\\icons\\icon.ico"
