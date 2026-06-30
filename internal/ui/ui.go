@@ -1620,18 +1620,18 @@ func levelFromUI(s string) archiver.Level {
 }
 
 // openInOS opens a file or folder with the OS default application.
-// On Windows we use 'cmd /c start "" <path>' which launches the file
-// with its associated app (Notepad for .txt, etc.) and returns immediately.
-// Using 'explorer <path>' would open File Explorer on the containing
-// folder instead of launching the file's default app.
+// On Windows we use 'rundll32 url.dll,FileProtocolHandler <path>' which
+// is the most reliable way to launch a file with its default app (used by
+// the popular skratchdot/open-golang library). The 'cmd /c start' approach
+// has issues with nested paths and paths containing spaces.
 func openInOS(path string) {
         switch runtime.GOOS {
         case "darwin":
                 _ = execCmd("open", path)
         case "windows":
-                // 'start "" <path>' — the empty title is required to avoid
-                // start treating a quoted path as the title.
-                _ = execCmd("cmd", "/c", "start", "", path)
+                sysRoot := os.Getenv("SYSTEMROOT")
+                rundll32 := filepath.Join(sysRoot, "System32", "rundll32.exe")
+                _ = execCmd(rundll32, "url.dll,FileProtocolHandler", path)
         default:
                 _ = execCmd("xdg-open", path)
         }

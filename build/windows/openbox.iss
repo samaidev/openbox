@@ -25,10 +25,10 @@
 ; Version can be overridden from command line:  iscc /DMyAppVersion=0.4.3 /DMyAppVersionFull=0.4.3.0 ...
 ; This lets release.yml pass the tag version so the installer filename matches the release tag.
 #ifndef MyAppVersion
-  #define MyAppVersion     "0.4.2"
+  #define MyAppVersion     "0.4.3"
 #endif
 #ifndef MyAppVersionFull
-  #define MyAppVersionFull "0.4.2.0"
+  #define MyAppVersionFull "0.4.3.0"
 #endif
 
 [Setup]
