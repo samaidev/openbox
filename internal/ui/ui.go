@@ -1005,8 +1005,17 @@ func (a *App) openFileFromArchive(e archiver.Entry) {
                         return
                 }
                 fullPath := filepath.Join(tmp, filepath.FromSlash(e.Name))
+                // Verify the file actually exists before trying to open it.
+                if _, err := os.Stat(fullPath); err != nil {
+                        a.appendLog("open: extracted file not found: " + fullPath + " (" + err.Error() + ")")
+                        os.RemoveAll(tmp)
+                        return
+                }
                 a.appendLog("open: launching " + fullPath)
                 openInOS(fullPath)
+                // Note: we deliberately do NOT clean up tmp here, because the
+                // launched app (e.g. Notepad) needs the file to stay on disk.
+                // The OS will clean up the temp dir on reboot.
         }()
 }
 

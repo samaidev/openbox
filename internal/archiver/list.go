@@ -383,11 +383,17 @@ func extractZipEntry(src, entryName, destDir string) error {
                 return err
         }
         defer r.Close()
+        // Normalize the entry name to forward slashes for comparison.
+        // Some zip creators (notably PowerShell Compress-Archive) store
+        // paths with backslashes, while synthesizeDirs normalizes to
+        // forward slashes. We compare on the normalized form.
+        wantName := filepath.ToSlash(entryName)
         for _, f := range r.File {
-                if decodeZipName(f.Name) != entryName {
+                name := decodeZipName(f.Name)
+                if filepath.ToSlash(name) != wantName {
                         continue
                 }
-                target, err := safeJoin(destDir, f.Name)
+                target, err := safeJoin(destDir, name)
                 if err != nil {
                         return err
                 }
