@@ -38,18 +38,18 @@ jobs:
             asset_suffix: windows-amd64
           - goos: darwin
             goarch: arm64
-            runner: macos-14
+            runner: macos-15
             archive: tar.gz
             bin_ext: ""
             asset_suffix: macos-arm64
           # Cross-compile macOS amd64 from an Apple Silicon runner.
-          # macos-13 (Intel) runners are being retired by GitHub and have
-          # severe availability problems; macos-14 + GOARCH=amd64 produces
+          # macos-14 (and macos-13) runner images were retired by GitHub;
+          # severe availability problems; macos-15 + GOARCH=amd64 produces
           # a perfectly good Intel-Mac binary that runs natively on Intel
           # Macs and via Rosetta 2 on Apple Silicon.
           - goos: darwin
             goarch: amd64
-            runner: macos-14
+            runner: macos-15
             archive: tar.gz
             bin_ext: ""
             asset_suffix: macos-amd64
@@ -182,14 +182,14 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
-  # macOS .pkg installer. Runs on macos-14 (Apple Silicon).
+  # macOS .pkg installer. Runs on macos-15 (Apple Silicon).
   # Builds the .app bundle + .icns + pkgbuild + productbuild in one shot
   # using build/macos/build.sh.
   # ---------------------------------------------------------------------------
   macos-installer:
     name: macOS installer (.pkg)
     needs: build
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
