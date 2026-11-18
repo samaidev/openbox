@@ -89,6 +89,7 @@ type App struct {
         aboutBtn  *widget.Button
         helpBtn   *widget.Button
         openAfter *widget.Check
+        notifyDone *widget.Check // v0.4.6: popup a completion dialog after extracting
         tabs      *container.AppTabs
         // form labels (need updating on language switch)
         srcLbl        *widget.Label // "Source" / "源文件"
@@ -112,6 +113,10 @@ type App struct {
 }
 
 const prefLang = "ui.lang"
+
+// prefPopup persists whether the "extraction complete" popup dialog is
+// shown after a successful extraction (v0.4.6). Default: on.
+const prefPopup = "ui.extractDonePopup"
 
 // Tab identifies which tab to focus on startup.
 type Tab int
@@ -184,6 +189,14 @@ func NewWithState(a fyne.App, init *InitialState) fyne.Window {
         app.logView.SetMinRowsVisible(6)
         app.logView.Disable()
         app.openAfter = widget.NewCheck(i18n.T(i18n.OpenAfterDone), nil)
+        // v0.4.6: extraction-complete popup — shown by default so users get
+        // an explicit "done" prompt with a one-click "Open folder" action.
+        // The choice is persisted across runs via app preferences.
+        app.notifyDone = widget.NewCheck(i18n.T(i18n.PopupWhenDone), nil)
+        app.notifyDone.SetChecked(a.Preferences().BoolWithFallback(prefPopup, true))
+        app.notifyDone.OnChanged = func(on bool) {
+                a.Preferences().SetBool(prefPopup, on)
+        }
 
         // Background + Cancel buttons — only visible while a task is running.
         app.backgroundBtn = widget.NewButtonWithIcon(i18n.T(i18n.Background), theme.ViewRestoreIcon(), app.doBackground)
@@ -193,7 +206,7 @@ func NewWithState(a fyne.App, init *InitialState) fyne.Window {
 
         bottom := container.NewVBox(
                 container.NewHBox(app.statusLbl, app.progress, layout.NewSpacer(),
-                        app.backgroundBtn, app.cancelBtn, app.openAfter),
+                        app.backgroundBtn, app.cancelBtn, app.openAfter, app.notifyDone),
                 container.NewMax(app.logView),
         )
 
@@ -249,6 +262,7 @@ func (a *App) rebuild() {
         a.exBrowse.SetText(i18n.T(i18n.Browse))
         a.exDestBrw.SetText(i18n.T(i18n.BrowseDir))
         a.openAfter.SetText(i18n.T(i18n.OpenAfterDone))
+        a.notifyDone.SetText(i18n.T(i18n.PopupWhenDone))
         // WinRAR-style toolbar buttons (Extract tab)
         a.findBtn.SetText(i18n.T(i18n.Find))
         a.addBtn.SetText(i18n.T(i18n.AddToArchive))
@@ -1592,10 +1606,49 @@ func (a *App) runExtract(src, dest, entryName string) {
                         dialog.ShowError(fmt.Errorf("%s%s", i18n.T(i18n.ErrExtractFailed), err.Error()), a.win)
                         return
                 }
+                // v0.4.6: extraction-complete popup prompt. By default we pop
+                // a dialog saying the extraction finished, with a one-click
+                // "Open folder" button — users no longer have to hunt for
+                // where the files landed. Opt-out checkbox lives next to
+                // "Open target when done" and the choice is persisted.
+                if a.notifyDone != nil && a.notifyDone.Checked {
+                        if entryName != "" {
+                                a.showExtractDoneDialog(filepath.Join(dest, entryName))
+                        } else {
+                                a.showExtractDoneDialog(dest)
+                        }
+                }
                 if a.openAfter.Checked {
                         openInOS(dest)
                 }
         }()
+}
+
+// showExtractDoneDialog pops the "extraction complete" prompt (v0.4.6).
+// The dialog shows where the files landed and offers a one-click
+// "Open folder" action. When the extracted path is a file (single-entry
+// extraction) we open its containing folder instead of launching the file.
+func (a *App) showExtractDoneDialog(path string) {
+        openTarget := path
+        if fi, err := os.Stat(path); err == nil && !fi.IsDir() {
+                openTarget = filepath.Dir(path)
+        }
+        msg := widget.NewLabel(i18n.Tf(i18n.ExtractDoneMsg, map[string]string{"path": path}))
+        msg.Wrapping = fyne.TextWrapWord
+        var d dialog.Dialog
+        d = dialog.NewCustom(
+                i18n.T(i18n.ExtractDoneTitle),
+                i18n.T(i18n.Ok),
+                container.NewVBox(
+                        msg,
+                        widget.NewButtonWithIcon(i18n.T(i18n.OpenFolder), theme.FolderOpenIcon(), func() {
+                                d.Hide()
+                                openInOS(openTarget)
+                        }),
+                ),
+                a.win,
+        )
+        d.Show()
 }
 
 // ---------- helpers ----------

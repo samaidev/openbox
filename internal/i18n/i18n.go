@@ -129,6 +129,14 @@ const (
         CloseFind
         UpBtn
         OpenEntry
+        // Extraction-complete popup prompt (v0.4.6): after a successful
+        // extraction we show a completion dialog with a one-click
+        // "Open folder" action. Users can turn the popup off via the
+        // "Popup when done" checkbox next to "Open target when done".
+        PopupWhenDone
+        ExtractDoneTitle
+        ExtractDoneMsg
+        OpenFolder
 )
 
 // table maps a key -> [English, Chinese].
@@ -232,6 +240,10 @@ var table = map[key][2]string{
         CloseFind:            {"Close", "关闭"},
         UpBtn:                {"Up", "上一级"},
         OpenEntry:            {"Open", "打开"},
+        PopupWhenDone:        {"Popup when done", "完成后弹窗提示"},
+        ExtractDoneTitle:     {"Extraction complete", "解压完成"},
+        ExtractDoneMsg:       {"Extracted to:\n{path}", "已解压到：\n{path}"},
+        OpenFolder:           {"Open folder", "打开文件夹"},
 }
 
 // T returns the string for the current language.
