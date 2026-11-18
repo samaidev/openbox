@@ -306,3 +306,62 @@ jobs:
             assets/OpenBox-*-macos.pkg
           draft: true
           generate_release_notes: true
+
+  # ---------------------------------------------------------------------------
+  # Mirror portable/installer artifacts to ModelScope + HuggingFace and update
+  # the unified catalog (samaidev/samai-releases). Runs only on tag pushes,
+  # AFTER the GitHub Release is published. Skips gracefully if secrets are
+  # not configured (checks each token before upload).
+  # ---------------------------------------------------------------------------
+  mirror-catalog:
+    name: Mirror (MS/HF) + update catalog
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [publish]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install upload SDKs
+        run: pip install huggingface_hub modelscope
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+
+      - name: Repackage artifacts (same layout as publish job)
+        run: |
+          set -euo pipefail
+          cd assets
+          for dir in openbox-windows-amd64 openbox-macos-arm64 openbox-macos-amd64 openbox-linux-amd64; do
+            case "$dir" in
+              openbox-windows-*)
+                (cd "$dir" && zip -r "../${dir}.zip" .)
+                ;;
+              *)
+                tar czf "${dir}.tar.gz" -C "$dir" .
+                ;;
+            esac
+          done
+          mv openbox-windows-installer/*.exe .
+          mv openbox-macos-installer/*.pkg .
+          ls -lh
+
+      - name: Fetch current catalog (single source of truth)
+        run: |
+          curl -fsSL -o catalog.json             https://raw.githubusercontent.com/samaidev/samai-releases/main/catalog.json
+
+      - name: Mirror to MS/HF + update catalog
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MS_TOKEN: ${{ secrets.MS_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          V="${GITHUB_REF##*/}"
+          python ci/publish_channels.py \
+            --dist assets --product openbox --version "$V" \
+            --repo samaidev/openbox --catalog catalog.json \
+            --glob "openbox"
